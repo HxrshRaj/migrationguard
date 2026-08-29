@@ -1,27 +1,28 @@
 # MigrationGuard — solution video storyboard (≤ 5:00)
 
-A single-take screen recording. Two windows only: a **terminal** (left) and a
-**browser** (right) showing `out/<mode>/report.html`. Every command below is
-copy-paste exact. Total budget is 5:00; the four sections are 0:45 / 1:35 /
-1:35 / 0:45 with ~20s of slack.
+A single-take screen recording. Two windows: a **terminal** (left) and a
+**browser** (right) showing a `report.html`. Every command below is
+copy-paste exact. Budget: 0:45 / 1:35 / 1:35 / 0:45 with ~20s slack.
 
 **Before you hit record** (do NOT film this):
 
 ```bash
-python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
+python -m venv .venv && .venv\Scripts\activate     # macOS/Linux: source .venv/bin/activate
 pip install -e ".[dev]"
-pytest -q                                           # expect: 79 passed
-rm -rf out/                                         # start clean so the runs are live on camera
+pytest -q                                          # expect: 87 passed
+rm -rf out/                                        # so the baseline run is live on camera
 ```
 
-If you have a key and want real Claude calls in section 3:
-`export ANTHROPIC_API_KEY=sk-ant-...` now, off camera. If you don't, the
-script's fallback (`--fake-llm`) is already wired in — say the one sentence
-marked *[no-key]* instead of *[key]* and keep going.
+The advanced run against the real LatentStack gateway takes ~7 minutes
+(Gemini 3.1 Pro is a reasoning model), so **do not run it live**. Its
+finished report and trajectory log are already committed at
+`artifacts/report-advanced-latentstack.html` and
+`artifacts/trajectories-latentstack.jsonl` — Section 3 points the browser
+at those.
 
 ---
 
-## 0:00 – 0:45 · The problem (talking head or terminal, no commands)
+## 0:00 – 0:45 · The problem
 
 > "An AI tool just migrated a legacy codebase. It compiles. It passes the
 > tests someone wrote. 'Migration complete' — but that's a *claim*, not
@@ -34,136 +35,127 @@ marked *[no-key]* instead of *[key]* and keep going.
 > original, and if not, exactly where — proven across a generated battery
 > of edge cases."
 >
-> "Scope for this demo: one real migration class end to end — unsafe
-> string-formatted SQL → parameterized queries — against a bundled 7-function
-> legacy app."
+> "Scope for this demo: one migration class end to end — unsafe
+> string-formatted SQL → parameterized queries — against a bundled
+> 7-function legacy app."
 
-On screen while talking: open `migrationguard/demo/legacy_app.py`, scroll
-once past `find_user_by_name` (f-string) and `list_active_users_over_age`
-(query built across two statements). ~8 seconds, then move on.
+On screen: open `migrationguard/demo/legacy_app.py`, scroll once past
+`find_user_by_name` (f-string) and `list_active_users_over_age` (query
+built across two statements). ~8 seconds, then move on.
 
 ---
 
-## 0:45 – 2:20 · Baseline run + report walkthrough (~1:35)
+## 0:45 – 2:20 · Baseline run + report walkthrough
 
-**Terminal (say "deterministic — no LLM, no network"):**
+**Terminal** (say "deterministic — no LLM, no network"):
 
 ```bash
 migrationguard scan --mode baseline --out-dir out/baseline
 ```
 
-Point at the final summary line as you read it:
+Read the final line:
 
-> "Seven risky patterns found, five auto-fixed by the deterministic AST
-> rewriter. The other two it *declines* — with a reason — which is the
-> honest move, and it's why the advanced fixer exists."
+> "Seven risky patterns, five auto-fixed by the deterministic AST
+> rewriter. The other two it *declines*, with a reason — the honest move,
+> and why the advanced fixer exists."
 
-**Browser — open `out/baseline/report.html`. Hit three things, in order:**
+**Browser — open `out/baseline/report.html`. Three things, in order:**
 
-1. **Executive summary strip (top):** "7 findings, 5 auto-fixed, 167 test
-   cases run, 129 identical, 0 cosmetic, 38 behavioral divergences. Those
-   167 cases are the deterministic curated adversarial-input battery,
-   applied per parameter."
+1. **Executive summary strip:** "7 findings, 5 auto-fixed, 167 test cases,
+   129 identical, 0 cosmetic, 38 behavioral divergences. Those 167 are the
+   deterministic curated adversarial-input battery, applied per parameter."
 2. **"What we're not confident about":** "`search_users_by_email_domain`
    and `list_active_users_over_age` — the two the template can't safely
-   rewrite. Note them; they should disappear in advanced mode."
+   rewrite. Watch these; they disappear in advanced mode."
 3. **`get_user_by_id_unsafe` card → "Smallest input that diverges" + the
    per-case table:** "Every divergence traces to a SQL metacharacter. The
-   heuristic in the Interpretation column flags each one as 'likely
-   expected — adversarial input' vs 'review needed'. The *verdict*
-   (`identical`/`breaking`) is pure and deterministic; that interpretation
-   is a separate, clearly-labeled layer on top — never folded into the
-   verdict. That separation is the project's main design decision."
+   Interpretation column flags each as 'likely expected — adversarial' vs
+   'review needed'. The *verdict* — `identical` / `breaking` — is pure and
+   deterministic; that interpretation is a separate labeled layer, never
+   folded into the verdict. That separation is the project's main design
+   decision."
 
 ---
 
-## 2:20 – 3:55 · Advanced run + what changed (~1:35)
+## 2:20 – 3:55 · Advanced run (real) + what changed
 
-**Terminal:**
-
-*[key]* "Same command, `--mode advanced` — now every stage that can use a
-model, does: a context-specific explanation per finding, an LLM rewrite for
-the two the template declined, and a written rationale per divergence.
-Every one of those calls is logged."
+**Terminal — show the command, then say it was run off-camera:**
 
 ```bash
-migrationguard scan --mode advanced --out-dir out/advanced --max-examples 150 --seed 20260830
+export LATENTSTACK_API_KEY=ls-...
+migrationguard scan --mode advanced --provider latentstack \
+  --out-dir out/advanced --max-examples 150 --seed 20260830
 ```
 
-*[no-key]* say instead: "No API key here, so `--fake-llm` — a deterministic
-stand-in that exercises the exact same pipeline shape, including the
-LLM-escalation path. Every call is still logged, tagged `fake-llm-client`
-so a dry run is never mistaken for real output."
+> "Advanced mode: every stage that can use a model, does — a
+> context-specific explanation per finding, an LLM rewrite for the two the
+> template declined, a written rationale per divergence. This one ran
+> against the **LatentStack gateway**, model Gemini 3.1 Pro. It takes about
+> seven minutes, so here's the finished result."
+
+**Terminal — the disclosure artifact:**
 
 ```bash
-migrationguard scan --mode advanced --fake-llm --out-dir out/advanced --max-examples 150
+wc -l artifacts/trajectories-latentstack.jsonl
+head -c 400 artifacts/trajectories-latentstack.jsonl ; echo
 ```
 
-Read the final lines: "7 of 7 auto-fixed now." *[key]* also point at the
-`LLM cost: ~$… over N priced call(s)` line — "real token counts from the
-trajectory log, priced at the published rate."
+> "Thirty-nine calls — seven explanations, two fixes, thirty rationales.
+> Every line: prompt, response, model, tokens, latency. Produced
+> automatically by the one LLM client wrapper, never assembled after the
+> fact. Zero failed calls."
 
-**Terminal — show the disclosure artifact:**
+**Browser — open `artifacts/report-advanced-latentstack.html`. Two things:**
 
-```bash
-head -c 400 out/advanced/trajectories.jsonl ; echo
-wc -l out/advanced/trajectories.jsonl
-```
-
-> "This file is the agent-trajectory disclosure — prompt, response, model,
-> tokens, latency, one JSON object per call. Produced automatically, never
-> assembled after the fact."
-
-**Browser — reload `out/advanced/report.html`, hit two things:**
-
-1. **"What we're not confident about":** "The two findings from baseline
-   are gone — both fixed by the LLM rewriter, which reads the whole
-   function instead of one expression, and self-checks the parameter list
-   before accepting."
+1. **Executive summary + "What we're not confident about":** "7 of 7
+   auto-fixed now — the two baseline couldn't touch are gone, both fixed by
+   the LLM rewriter, which reads the whole function and self-checks the
+   parameter list. 683 verification cases: 473 identical, 210 breaking,
+   every breaking one on adversarial input. Cost: about 31 cents, roughly
+   seven minutes."
 2. **`list_active_users_over_age` card:** "Hundreds of Hypothesis-generated
-   cases, type-aware, and the 'Smallest input that diverges' line is
-   auto-shrunk to a minimal counterexample. Same deterministic verdict
-   engine underneath — advanced mode changed the *inputs* and the
-   *narration*, not the scoring."
+   cases, type-aware, shrunk to a minimal counterexample. Same
+   deterministic verdict engine as baseline — advanced mode changed the
+   *inputs* and the *narration*, not the scoring."
 
 ---
 
-## 3:55 – 4:40 · Changelog highlights + hot take (~0:45)
+## 3:55 – 4:40 · Changelog highlights + hot take
 
-**Browser or editor — `CHANGELOG.md`.** Scroll to the two bug entries
-(#2 and #6) and the "Hot take".
+**Editor — `CHANGELOG.md`.** Scroll to bug entries #2 and #6, then the
+LatentStack entries (16–19), then "Hot take".
 
-> "The changelog is evidence-tied — an entry per iteration. The two most
-> interesting entries are bugs found in *MigrationGuard itself* during the
-> build: #2, quotes left around a bind placeholder so it silently returned
-> zero rows; #6, `from __future__ import annotations` turning every type
-> hint into a string so type-aware test-gen silently degraded to a 100%
-> false-divergence rate."
+> "The changelog is evidence-tied, one entry per iteration. Two of them are
+> bugs found in *MigrationGuard itself*: #2, quotes left around a bind
+> placeholder so it silently returned zero rows; #6, a `__future__` import
+> turning every type hint into a string so type-aware test-gen silently
+> degraded to a 100% false-divergence rate. Neither looked wrong on a
+> casual read — each was only caught because something downstream refused a
+> too-clean result. That's the argument for this tool, applied to its own
+> code."
 >
-> "Neither looked wrong on a casual read. Both were only caught because
-> something downstream refused a suspicious result at face value — a test
-> in one case, a report number too clean to be true in the other. That's
-> the whole argument for this tool, applied to its own code: 'looks right,
-> passes the obvious check' wasn't good enough for the migrated code, and
-> it wasn't good enough here either."
+> "Entries 16 through 19 were built with the LatentStack coding agent —
+> three merged PRs adding a fifth detected pattern, CI flags, and
+> LatentStack itself as a second LLM provider — plus the real advanced run
+> above, on the LatentStack gateway."
 
 ---
 
-## 4:40 – 5:00 · Close (~0:20)
+## 4:40 – 5:00 · Close
 
 > "Scan, fix, and *prove* — or say exactly where the proof runs out.
 > `--path` points it at any codebase; the verifier is the reusable part.
 > Everything's in the repo: reproduction guide, the disclosed trajectories,
-> and a changelog that shows the work."
+> a changelog that shows the work."
 
-Last frame: the `out/advanced/report.html` executive-summary strip.
+Last frame: the `artifacts/report-advanced-latentstack.html` summary strip.
 
 ---
 
-### If a run is slower than expected on camera
+### Fallbacks
 
-Baseline is < 1s. Advanced `--fake-llm` is a few seconds (Hypothesis
-shrinking, not model latency). Real advanced mode is a few minutes for the
-full demo app — if filming with a key, **run it once off-camera first** so
-`out/advanced/` already exists, then on camera re-run it and cut to the
-finished report, or lower `--max-examples` to `60`.
+- Baseline run is < 1 s. If you'd rather show advanced *live* without a
+  key: `migrationguard scan --mode advanced --fake-llm --out-dir out/advanced
+  --max-examples 150` runs in a few seconds and hits 7/7 — say "deterministic
+  stand-in, tagged `fake-llm-client`" and skip the cost line.
+- `pytest -q` on a cold Windows checkout takes ~1–2 min; run it off-camera.

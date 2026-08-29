@@ -300,7 +300,7 @@ changelog + hot take) with copy-paste-exact commands and the specific
 
 ## 17. `--json` and `--fail-on` for CI use
 
-*Drafted by the LatentStack coding agent on a scoped task; reviewed and verified here — the agent's `--json` path left the console log handler attached, so stdout was polluted with `INFO` lines and wasn't parseable JSON; fixed by passing `also_console=not json_output` to `configure_logging`.*
+*Drafted by the LatentStack coding agent on a scoped task; reviewed and verified here — the agent's `--json` path left the console log handler attached, so stdout was polluted with `INFO` lines and wasn't parseable JSON; fixed by passing `also_console=not json_output` to `configure_logging`. A second bug surfaced later during the clean-room repro: `click.echo(str)` of the JSON crashed with `UnicodeEncodeError` when stdout was a non-UTF-8 pipe (`cp1252` on Windows) because a curated test input contains an emoji — fixed by echoing UTF-8 bytes, and pinned by `test_json_output_is_utf8_under_a_legacy_stdout_encoding` (a subprocess test that forces `PYTHONIOENCODING=cp1252`).*
 
 The `scan` command only spoke to humans (a summary block on stdout, exit 0 always). Two flags make it CI-usable:
 

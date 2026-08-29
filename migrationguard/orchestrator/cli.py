@@ -283,7 +283,11 @@ def scan(
 
     if json_output:
         logger.info(scanned_line)
-        click.echo(report.model_dump_json(indent=2))
+        # Write UTF-8 bytes straight to the stdout buffer: the report can
+        # contain non-ASCII (a curated test input has an emoji), and a
+        # redirected stdout on Windows defaults to cp1252, which would
+        # raise UnicodeEncodeError on click.echo of a str.
+        click.echo(report.model_dump_json(indent=2).encode("utf-8"))
     else:
         lines = [
             scanned_line,

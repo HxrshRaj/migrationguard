@@ -6,6 +6,11 @@ documents; everything else is additive.
 """
 from __future__ import annotations
 
+import json
+import os
+import subprocess
+import sys
+
 from click.testing import CliRunner
 
 from migrationguard.models import RunReport
@@ -123,11 +128,23 @@ def test_json_flag_prints_valid_json_and_suppresses_summary(tmp_path):
     assert result.exit_code == 0, result.output
     # Must not contain the human summary
     assert "Scanned migrationguard/demo/legacy_app.py" not in result.output
-    
     # Must be valid parseable JSON for a RunReport
-    import json
-    parsed = json.loads(result.output)
-    report = RunReport.model_validate(parsed)
+    report = RunReport.model_validate(json.loads(result.output))
+    assert len(report.findings) == 7
+
+
+def test_json_output_is_utf8_under_a_legacy_stdout_encoding(tmp_path):
+    # Regression: --json used to crash with UnicodeEncodeError when stdout
+    # was a non-UTF-8 pipe (e.g. cp1252 on Windows), because a curated test
+    # input contains an emoji. It must write UTF-8 bytes regardless.
+    env = dict(os.environ, PYTHONIOENCODING="cp1252", PYTHONUTF8="0")
+    proc = subprocess.run(
+        [sys.executable, "-m", "migrationguard.orchestrator.cli",
+         "scan", "--mode", "baseline", "--json", "--out-dir", str(tmp_path)],
+        capture_output=True, env=env, check=False,
+    )
+    assert proc.returncode == 0, proc.stderr.decode("utf-8", "replace")
+    report = RunReport.model_validate_json(proc.stdout.decode("utf-8"))
     assert len(report.findings) == 7
 
 def test_fail_on_breaking_gives_exit_code_1_for_demo(tmp_path):
