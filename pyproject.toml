@@ -21,6 +21,7 @@ dependencies = [
     "click>=8.1,<9",
     "jinja2>=3.1,<4",
     "anthropic>=0.34,<3",
+    "openai>=1.40,<2",
 ]
 
 [project.optional-dependencies]
@@ -75,5 +76,5 @@ no_implicit_optional = true
 check_untyped_defs = true
 
 [[tool.mypy.overrides]]
-module = ["anthropic.*", "hypothesis.*"]
+module = ["anthropic.*", "openai.*", "hypothesis.*"]
 ignore_missing_imports = true

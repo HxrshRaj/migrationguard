@@ -37,6 +37,7 @@ pip install -e ".[dev]"
 migrationguard scan --mode baseline
 migrationguard scan --mode advanced --fake-llm   # no API key needed, exercises the full pipeline
 migrationguard scan --mode advanced              # real Claude calls; needs ANTHROPIC_API_KEY
+migrationguard scan --mode advanced --provider latentstack # real LatentStack calls; needs LATENTSTACK_API_KEY
 migrationguard scan --path path/to/your/code     # scan a file or directory instead of the bundled demo
 open out/baseline/report.html                    # or out/advanced/report.html
 ```
@@ -79,7 +80,7 @@ Five modules, each independently testable:
 - The severity model has three buckets and no fourth "expected due to security fix" bucket at the verdict level — see the note above.
 - The advanced fixer's self-check confirms the parameter *list* is unchanged; it doesn't verify parameter *order semantics* beyond that (a rewrite that swapped two same-typed parameters would pass the self-check and only get caught by the verifier finding the resulting divergence — which it does, but that's a second line of defense, not prevention).
 - `search_users_by_email_domain`'s LLM-generated fix moves the `%` wildcard into the bound parameter (`LIKE ?` with `f"%{domain}"`); this is the standard, correct pattern, but it does mean the fixed function's exact query string differs from a hand-written parameterization someone might have expected.
-- Advanced-mode numbers throughout the reproduction guide were captured with a real `ANTHROPIC_API_KEY`. If the key isn't set at review time, `--fake-llm` reproduces the full pipeline shape but not real model output.
+- Advanced-mode numbers throughout the reproduction guide were captured with a real `ANTHROPIC_API_KEY`. If the key isn't set at review time, `--fake-llm` reproduces the full pipeline shape but not real model output. To run against the LatentStack gateway, use `--provider latentstack` (needs `LATENTSTACK_API_KEY`).
 - A real Claude call that fails every retry (rate limit, transient 5xx, dropped connection) is *degraded, not fatal*: that finding falls back to its canned explanation / not-auto-fixed status / heuristic rationale, the failed call is written to `trajectories.jsonl` as `<CALL FAILED ...>`, and the report's "What we're not confident about" lists it. An auth/permission error still stops the run — nothing downstream would work.
 - `str.format()` (CHANGELOG entry 9) and `string.Template` (entry 16) detection and template-fixing are each covered by unit tests but are not exercised by the bundled demo app, which is deliberately frozen at 7 findings so its documented numbers stay exact. `string.Template` was drafted by the LatentStack coding agent and reviewed before merge — see entry 16.
 - `--path` generalizes *scanning and fix generation* to any file or directory, but *behavioral verification* still only runs for the bundled demo: the harness seeds an in-memory SQLite database from a fixed fixture (`demo/fixtures.py`), so it can only exercise functions that expect that schema. Verifying arbitrary code would need a per-project fixtures provider — a real design direction, out of scope for this submission. Findings outside the demo are scanned, fix-generated, and reported, with the missing verification called out explicitly in the report.
