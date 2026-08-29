@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import ast
 import re
+import string
 from dataclasses import dataclass, field
 
 from migrationguard.models import PatternType
@@ -99,6 +100,11 @@ def analyze_query_expr(expr: ast.expr) -> QueryAnalysis | None:
 
     if isinstance(expr, ast.BinOp) and isinstance(expr.op, ast.Add):
         result = _analyze_concat(expr)
+        if result is not None:
+            return result
+
+    if isinstance(expr, ast.Call):
+        result = _analyze_format(expr)
         if result is not None:
             return result
 
@@ -210,3 +216,69 @@ def _analyze_concat(expr: ast.BinOp) -> QueryAnalysis | None:
         else:
             segments.append(("param", operand))
     return _segments_to_analysis(segments, PatternType.CONCAT)
+
+
+_FORMATTER = string.Formatter()
+
+
+def _analyze_format(expr: ast.Call) -> QueryAnalysis | None:
+    """`"... {} ... {name} ...".format(a, name=b)`. Returns None if this
+    isn't a `.format()` call on a string literal at all (so the caller
+    falls through to UNTRACEABLE); returns a QueryAnalysis with
+    parameterized_sql=None for a recognized-but-not-mechanically-fixable
+    shape (a format spec / conversion that changes the value, mixed auto
+    and manual field numbering, attribute/index access in a field, an
+    arg-count mismatch, or a `**kwargs` splat)."""
+    func = expr.func
+    if not (isinstance(func, ast.Attribute) and func.attr == "format"):
+        return None
+    template_node = func.value
+    if not (isinstance(template_node, ast.Constant) and isinstance(template_node.value, str)):
+        return None  # e.g. `query_template.format(...)` -- not a literal we can read
+    template = template_node.value
+
+    if any(kw.arg is None for kw in expr.keywords):  # `.format(**mapping)`
+        return QueryAnalysis(PatternType.FORMAT_METHOD, None, [])
+    pos_args = list(expr.args)
+    if any(isinstance(a, ast.Starred) for a in pos_args):  # `.format(*args)`
+        return QueryAnalysis(PatternType.FORMAT_METHOD, None, [])
+    kw_args = {kw.arg: kw.value for kw in expr.keywords}
+
+    try:
+        parsed = list(_FORMATTER.parse(template))
+    except ValueError:
+        return QueryAnalysis(PatternType.FORMAT_METHOD, None, [])
+
+    segments: list[Segment] = []
+    auto_index = 0
+    seen_auto = seen_manual = False
+    for literal_text, field_name, format_spec, conversion in parsed:
+        if literal_text:
+            segments.append(("lit", literal_text))
+        if field_name is None:
+            continue
+        if format_spec or conversion:
+            # `{:>10}` / `{!r}` reshape the value before it lands in the
+            # SQL text -- binding the raw value wouldn't be equivalent.
+            return QueryAnalysis(PatternType.FORMAT_METHOD, None, [])
+        if "." in field_name or "[" in field_name:  # `{0.attr}` / `{0[1]}`
+            return QueryAnalysis(PatternType.FORMAT_METHOD, None, [])
+        if field_name == "":
+            seen_auto = True
+            if auto_index >= len(pos_args):
+                return QueryAnalysis(PatternType.FORMAT_METHOD, None, [])
+            segments.append(("param", pos_args[auto_index]))
+            auto_index += 1
+        elif field_name.isdigit():
+            seen_manual = True
+            idx = int(field_name)
+            if idx >= len(pos_args):
+                return QueryAnalysis(PatternType.FORMAT_METHOD, None, [])
+            segments.append(("param", pos_args[idx]))
+        else:
+            if field_name not in kw_args:
+                return QueryAnalysis(PatternType.FORMAT_METHOD, None, [])
+            segments.append(("param", kw_args[field_name]))
+    if seen_auto and seen_manual:  # "{} {0}".format(...) is a ValueError at runtime
+        return QueryAnalysis(PatternType.FORMAT_METHOD, None, [])
+    return _segments_to_analysis(segments, PatternType.FORMAT_METHOD)

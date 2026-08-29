@@ -30,6 +30,12 @@ _EXPLANATIONS: dict[PatternType, str] = {
         "is spliced into the query text verbatim instead of being bound as "
         "a separate parameter."
     ),
+    PatternType.FORMAT_METHOD: (
+        "This query is built with str.format(), so every value passed to "
+        ".format() is rendered straight into the SQL text -- quotes, "
+        "wildcards, and keywords in that value are parsed as SQL, not "
+        "treated as data. It has the same risk as f-string interpolation."
+    ),
     PatternType.CONCAT: (
         "This query is assembled with string concatenation. Every "
         "concatenated value is exposed to the SQL parser as literal text, "
@@ -47,6 +53,7 @@ _EXPLANATIONS: dict[PatternType, str] = {
 _BASELINE_CONFIDENCE: dict[PatternType, float] = {
     PatternType.FSTRING: 0.9,
     PatternType.PERCENT_FORMAT: 0.9,
+    PatternType.FORMAT_METHOD: 0.9,
     PatternType.CONCAT: 0.9,
     PatternType.UNTRACEABLE: 0.55,
 }

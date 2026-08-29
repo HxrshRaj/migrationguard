@@ -46,3 +46,32 @@ def test_every_finding_has_an_explanation_and_confidence():
     for finding in findings:
         assert finding.risk_explanation
         assert 0.0 <= finding.confidence <= 1.0
+
+
+_STR_FORMAT_SRC = (
+    "def lookup(conn, name):\n"
+    "    query = \"SELECT id FROM users WHERE name = '{}'\".format(name)\n"
+    "    return conn.execute(query).fetchall()\n"
+)
+
+
+def test_flags_str_format_pattern_with_explanation_and_confidence():
+    findings = scan_source(_STR_FORMAT_SRC, "inline.py")
+    assert len(findings) == 1
+    (finding,) = findings
+    assert finding.function == "lookup"
+    assert finding.pattern_type == PatternType.FORMAT_METHOD
+    assert finding.risk_explanation  # canned explanation wired up, no KeyError
+    assert 0.0 <= finding.confidence <= 1.0
+
+
+def test_no_false_positive_on_format_call_that_is_not_str_format():
+    # `.format()` on something that isn't a string literal template is not
+    # a string-formatting SQL pattern this analyzer can reason about; it
+    # still gets flagged, but as UNTRACEABLE, not FORMAT_METHOD.
+    src = (
+        "def lookup(conn, spec):\n"
+        "    return conn.execute(spec.format(1)).fetchall()\n"
+    )
+    findings = scan_source(src, "inline.py")
+    assert [f.pattern_type for f in findings] == [PatternType.UNTRACEABLE]

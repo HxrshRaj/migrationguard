@@ -55,3 +55,24 @@ def test_fixed_source_no_longer_contains_the_original_query_building_line():
     assert fix.success
     assert "f\"" not in fix.fixed_source  # the f-string is gone
     assert "?" in fix.fixed_source  # replaced with a bind placeholder
+
+
+_STR_FORMAT_SRC = (
+    "def lookup(conn, name, role):\n"
+    "    query = \"SELECT id FROM users WHERE name = '{}' AND role = '{}'\""
+    ".format(name, role)\n"
+    "    return conn.execute(query).fetchall()\n"
+)
+
+
+def test_template_fixer_rewrites_a_str_format_query():
+    findings = scan_source(_STR_FORMAT_SRC, "inline.py")
+    (finding,) = findings
+    fix = generate_fix(_STR_FORMAT_SRC, finding)
+    assert fix.success
+    assert fix.strategy == "template"
+    tree = ast.parse(fix.fixed_source)
+    assert isinstance(tree.body[0], ast.FunctionDef)
+    assert ".format(" not in fix.fixed_source  # the str.format call is gone
+    assert fix.fixed_source.count("?") == 2  # two bind placeholders
+    assert "'?'" not in fix.fixed_source  # placeholders are not left quoted

@@ -56,6 +56,86 @@ def test_call_result_is_untraceable():
     assert analysis.parameterized_sql is None
 
 
+# --- str.format() ---------------------------------------------------------
+
+
+def test_format_method_with_quoted_placeholder_strips_quotes():
+    analysis = analyze_query_expr(_expr("\"WHERE name = '{}'\".format(name)"))
+    assert analysis.pattern_type == PatternType.FORMAT_METHOD
+    assert analysis.parameterized_sql == "WHERE name = ?"
+    assert len(analysis.param_exprs) == 1
+
+
+def test_format_method_auto_numbered_two_fields():
+    analysis = analyze_query_expr(
+        _expr("\"WHERE a = '{}' AND b = '{}'\".format(x, y)")
+    )
+    assert analysis.parameterized_sql == "WHERE a = ? AND b = ?"
+    assert [p.id for p in analysis.param_exprs] == ["x", "y"]
+
+
+def test_format_method_manual_numbering_binds_in_template_order():
+    # fields reference args out of order; binds must follow the order the
+    # placeholders appear in the SQL text, not the .format() arg order.
+    analysis = analyze_query_expr(
+        _expr("\"WHERE a = '{1}' AND b = '{0}'\".format(x, y)")
+    )
+    assert analysis.parameterized_sql == "WHERE a = ? AND b = ?"
+    assert [p.id for p in analysis.param_exprs] == ["y", "x"]
+
+
+def test_format_method_keyword_field():
+    analysis = analyze_query_expr(
+        _expr("\"WHERE role = '{role}'\".format(role=r)")
+    )
+    assert analysis.parameterized_sql == "WHERE role = ?"
+    assert [p.id for p in analysis.param_exprs] == ["r"]
+
+
+def test_format_method_with_format_spec_is_recognized_but_unfixable():
+    analysis = analyze_query_expr(_expr('"WHERE id = {0:d}".format(uid)'))
+    assert analysis.pattern_type == PatternType.FORMAT_METHOD
+    assert analysis.parameterized_sql is None
+
+
+def test_format_method_with_conversion_is_recognized_but_unfixable():
+    analysis = analyze_query_expr(_expr('"WHERE x = {!r}".format(v)'))
+    assert analysis.pattern_type == PatternType.FORMAT_METHOD
+    assert analysis.parameterized_sql is None
+
+
+def test_format_method_mixed_auto_and_manual_numbering_is_unfixable():
+    analysis = analyze_query_expr(_expr('"{} {0}".format(a, b)'))
+    assert analysis.pattern_type == PatternType.FORMAT_METHOD
+    assert analysis.parameterized_sql is None
+
+
+def test_format_method_asymmetric_quote_is_unfixable():
+    # LIKE wildcard baked into the text -- quote on only one side, same as
+    # the concat case, so the analyzer refuses to strip it mechanically.
+    analysis = analyze_query_expr(_expr("\"WHERE email LIKE '%{}'\".format(domain)"))
+    assert analysis.pattern_type == PatternType.FORMAT_METHOD
+    assert analysis.parameterized_sql is None
+
+
+def test_format_method_arg_count_mismatch_is_unfixable():
+    analysis = analyze_query_expr(_expr('"{} {}".format(a)'))
+    assert analysis.pattern_type == PatternType.FORMAT_METHOD
+    assert analysis.parameterized_sql is None
+
+
+def test_format_method_attribute_access_in_field_is_unfixable():
+    analysis = analyze_query_expr(_expr('"WHERE id = {0.pk}".format(obj)'))
+    assert analysis.pattern_type == PatternType.FORMAT_METHOD
+    assert analysis.parameterized_sql is None
+
+
+def test_format_on_non_literal_template_is_untraceable():
+    analysis = analyze_query_expr(_expr("query_template.format(name)"))
+    assert analysis.pattern_type == PatternType.UNTRACEABLE
+    assert analysis.parameterized_sql is None
+
+
 def test_resolve_single_assignment():
     func = ast.parse(
         "def f(conn, name):\n"

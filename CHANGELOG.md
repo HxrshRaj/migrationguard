@@ -46,6 +46,48 @@ Single self-contained HTML file, no CDN dependency. Executive summary, per-findi
 
 ---
 
+## Improvement pass (post-submission hardening, Aug 29 2026)
+
+Entries below were made in a second pass over the original submission. The
+goal was to close the widest "toy demo vs. real tool" gaps without
+destabilising the verifier core or the reproduction numbers above.
+
+## 9. `str.format()` added as a fourth detected pattern
+
+The scanner scoped four string-formatting shapes for this migration class
+(f-string, `%`-format, concatenation, `str.format()`) but only shipped
+three; `"... {} ...".format(x)` was recognised as risky only accidentally,
+via the `UNTRACEABLE` catch-all, with no dedicated classification and no
+template fix. `queryexpr._analyze_format()` now parses the format template
+with `string.Formatter().parse()`, maps every field (`{}`, `{0}`, `{name}`)
+back to its `.format()` argument in *placeholder* order, and feeds the
+result through the same `(literal, param)` segment machinery the other
+three patterns use — so the quote-stripping fix from entry #2 and the
+asymmetric-quote refusal both apply to `str.format()` for free.
+
+**Evidence:** 14 new tests. `tests/test_queryexpr.py` pins down 12 shapes:
+auto-numbered, manual-numbered (including out-of-order fields, where the
+bind order must follow the SQL text and not the arg list —
+`test_format_method_manual_numbering_binds_in_template_order`), keyword
+fields, and five distinct *recognised-but-not-mechanically-fixable* cases
+(format spec `{0:d}`, conversion `{!r}`, mixed auto/manual numbering,
+`LIKE '%{}'` asymmetric quoting, arg-count mismatch) that come back
+classified as `format_method` with `parameterized_sql=None` rather than
+silently mis-rewritten. `tests/test_scanner.py` and
+`tests/test_fixgen_baseline.py` confirm the pattern is wired end to end
+(canned explanation + confidence, no `KeyError`) and that a two-field
+`str.format()` query is rewritten to `WHERE name = ? AND role = ?` with
+the quotes stripped and no `'?'` left behind.
+
+This capability is covered by unit tests rather than by an 8th function in
+`demo/legacy_app.py`: keeping the bundled demo at exactly 7 findings keeps
+every number in `README.md` and `REPRODUCTION.md` (and entries #1–#8
+above) accurate as-written. The tradeoff is that `--mode advanced` on the
+demo app doesn't exercise `str.format()` end to end; the analyzer and the
+fixer are exercised directly instead.
+
+---
+
 ## Main failure mode
 
 The severity model has exactly three verdict buckets (`identical` / `cosmetic` / `breaking`) and, deliberately, no fourth bucket for "breaking because the fix is *supposed* to change this input's behavior." That interpretation lives one layer up, in the report (a heuristic in baseline mode, an LLM sentence in advanced mode) — never inside the trusted verdict itself. On this demo's migration class that's the right call: folding "is this expected" into the ground-truth verdict would mean trusting a heuristic or a model to decide what counts as a bug, which is exactly the kind of unverifiable confidence this project exists to replace. But it does mean the report currently asks a reviewer to read two things together (the verdict, and its interpretation) rather than one, and on a migration class where divergence is never intentional, that second layer would be pure overhead rather than the load-bearing distinction it is here.

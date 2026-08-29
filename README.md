@@ -22,7 +22,7 @@ An engineer who just ran an AI coding tool over a legacy codebase — LatentCode
 
 ## This submission's scope
 
-Building a general-purpose migration verifier in 46 hours isn't credible, so this submission targets one narrow, real migration class end to end rather than many classes shallowly: **unsafe, string-formatted SQL query construction → parameterized queries** (f-strings, `%`-formatting, and string concatenation, all landing in a `sqlite3` `execute()`/`executemany()` call). It's demonstrated against a small bundled "legacy" app (`migrationguard/demo/legacy_app.py`) so the whole pipeline — scan, fix, verify, report — runs against real, if intentionally small, code rather than a synthetic example built to make the demo look good.
+Building a general-purpose migration verifier in 46 hours isn't credible, so this submission targets one narrow, real migration class end to end rather than many classes shallowly: **unsafe, string-formatted SQL query construction → parameterized queries** (f-strings, `%`-formatting, `str.format()`, and string concatenation, all landing in a `sqlite3` `execute()`/`executemany()` call). It's demonstrated against a small bundled "legacy" app (`migrationguard/demo/legacy_app.py`) so the whole pipeline — scan, fix, verify, report — runs against real, if intentionally small, code rather than a synthetic example built to make the demo look good.
 
 The architecture doesn't assume this is the only class MigrationGuard will ever check. `fixgen/` is an interface — anything that produces a `FixCandidate` can be verified — deliberately, so the verifier stays useful regardless of what generated the fix: LatentCode, a different tool, or a human. That's also the honest answer to "isn't this just a smaller LatentCode": MigrationGuard doesn't compete with a migration tool, it sits downstream of one and checks its work.
 
@@ -72,6 +72,7 @@ Five modules, each independently testable:
 - The advanced fixer's self-check confirms the parameter *list* is unchanged; it doesn't verify parameter *order semantics* beyond that (a rewrite that swapped two same-typed parameters would pass the self-check and only get caught by the verifier finding the resulting divergence — which it does, but that's a second line of defense, not prevention).
 - `search_users_by_email_domain`'s LLM-generated fix moves the `%` wildcard into the bound parameter (`LIKE ?` with `f"%{domain}"`); this is the standard, correct pattern, but it does mean the fixed function's exact query string differs from a hand-written parameterization someone might have expected.
 - Advanced-mode numbers throughout the reproduction guide were captured with a real `ANTHROPIC_API_KEY`. If the key isn't set at review time, `--fake-llm` reproduces the full pipeline shape but not real model output.
+- `str.format()` detection and template-fixing (added in the post-submission pass — see `CHANGELOG.md` entry 9) is covered by 14 unit tests but is not exercised by the bundled demo app, which is deliberately frozen at 7 findings so its documented numbers stay exact.
 
 ## Agent trajectories
 

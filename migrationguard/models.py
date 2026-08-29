@@ -20,6 +20,7 @@ class Mode(str, Enum):
 class PatternType(str, Enum):
     FSTRING = "fstring"
     PERCENT_FORMAT = "percent_format"
+    FORMAT_METHOD = "format_method"  # "...{}...".format(x) / str.format
     CONCAT = "concat"
     UNTRACEABLE = "untraceable"  # execute() called with a variable/expression
     # baseline's inline analyzer cannot reconstruct
