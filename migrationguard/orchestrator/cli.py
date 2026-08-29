@@ -89,6 +89,19 @@ def main() -> None:
     help="Use a deterministic fake LLM client instead of calling Claude "
     "(advanced mode only) -- for a dry run with no ANTHROPIC_API_KEY set.",
 )
+@click.option(
+    "--json",
+    "json_output",
+    is_flag=True,
+    help="When set, print the full RunReport as JSON to stdout instead of the human summary block. The other files are written as normal. The summary goes to the logger only.",
+)
+@click.option(
+    "--fail-on",
+    type=click.Choice(["none", "breaking"]),
+    default="none",
+    show_default=True,
+    help="If 'breaking', exit with code 1 if any verification has breaking > 0. Default 'none' keeps exit code 0.",
+)
 def scan(
     mode: str,
     scan_path: Path | None,
@@ -96,11 +109,15 @@ def scan(
     max_examples: int,
     seed: int,
     fake_llm: bool,
+    json_output: bool,
+    fail_on: str,
 ) -> None:
     """Scan code for risky SQL construction, fix what it can, verify every fix."""
     mode_enum = Mode(mode)
     out_dir.mkdir(parents=True, exist_ok=True)
-    logger = configure_logging(out_dir / "run.jsonl")
+    # In --json mode stdout must be pure JSON, so keep logging to the file
+    # only; the human-readable console stream would otherwise pollute it.
+    logger = configure_logging(out_dir / "run.jsonl", also_console=not json_output)
     trajectory_log = TrajectoryLog(out_dir / "trajectories.jsonl")
     trajectory_log.path.write_text("", encoding="utf-8")  # start this run's log fresh
 
@@ -252,15 +269,25 @@ def scan(
             f"Scanned {len(source_by_file)} file(s) under {scan_label}: "
             f"{len(findings)} finding(s), {fixed_count} auto-fixed."
         )
-    lines = [
-        scanned_line,
-        f"Report:      {out_dir / 'report.html'}",
-        f"Run log:     {out_dir / 'run.jsonl'}",
-        f"Trajectories:{out_dir / 'trajectories.jsonl'}",
-    ]
-    if cost.is_billable:
-        lines.append(format_cost_summary(cost))
-    click.echo("\n".join(lines))
+
+    if json_output:
+        logger.info(scanned_line)
+        click.echo(report.model_dump_json(indent=2))
+    else:
+        lines = [
+            scanned_line,
+            f"Report:      {out_dir / 'report.html'}",
+            f"Run log:     {out_dir / 'run.jsonl'}",
+            f"Trajectories:{out_dir / 'trajectories.jsonl'}",
+        ]
+        if cost.is_billable:
+            lines.append(format_cost_summary(cost))
+        click.echo("\n".join(lines))
+
+    if fail_on == "breaking":
+        for vr in verifications.values():
+            if vr.breaking > 0:
+                raise SystemExit(1)
 
 
 def _resolve_files(scan_path: Path | None) -> list[Path]:

@@ -104,6 +104,18 @@ migrationguard scan --mode baseline --path path/to/your/code --out-dir out/mycod
 
 `--path` takes a file or a directory (walked recursively for `.py` files; `__pycache__`, `.venv`, `build`, etc. are skipped). Findings and proposed fixes from every file are aggregated into one `report.html`. Behavioral verification only runs for the bundled demo app — for any other file the report shows the finding and the proposed fix with the missing verification stated explicitly in "What we're not confident about". A scan that finds nothing still writes a valid (empty) report.
 
+## 4d. CI usage
+
+```bash
+migrationguard scan --json
+```
+When `--json` is set, the human summary block is suppressed and the command prints the full `RunReport` as valid JSON to stdout (indented for readability). The four standard files (report, JSONL log, trajectories, run_report.json) are still written to `--out-dir`. The text summary goes to the logger instead of standard output.
+
+```bash
+migrationguard scan --fail-on breaking
+```
+By default, the process exits with code 0 even if behavioral verification finds breaking divergences (since a static scan is meant to inform, not necessarily fail the build). If you want the pipeline to halt when a fix does not identically match the original behavior, set `--fail-on breaking` — the process will exit with code 1 at the end of the run if any verification has `breaking > 0`. The default is `--fail-on none`.
+
 ## 5. What to look at
 
 Open `out/<mode>/report.html` in a browser (no network needed to view it — everything is inlined). Look specifically at:

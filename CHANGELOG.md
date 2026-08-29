@@ -298,6 +298,19 @@ changelog + hot take) with copy-paste-exact commands and the specific
 
 **Evidence:** 7 new tests — `tests/test_queryexpr.py` ×6 (quoted `$name` strips quotes, `${name}` brace form, two fields binding in *template* order not kwarg order, `.safe_substitute`, a `.substitute(d)` mapping call classified unfixable, a non-literal-template call falling through to `UNTRACEABLE`) and `tests/test_scanner.py` ×1 (end-to-end: flagged as `template_string` with explanation + confidence, no `KeyError`). Full suite: 79 passed; `ruff check .` and `mypy` clean.
 
+## 17. `--json` and `--fail-on` for CI use
+
+*Drafted by the LatentStack coding agent on a scoped task; reviewed and verified here — the agent's `--json` path left the console log handler attached, so stdout was polluted with `INFO` lines and wasn't parseable JSON; fixed by passing `also_console=not json_output` to `configure_logging`.*
+
+The `scan` command only spoke to humans (a summary block on stdout, exit 0 always). Two flags make it CI-usable:
+
+- `--json` — prints the full `RunReport` as indented JSON to stdout instead of the summary block, and drops the console log handler so stdout is *only* that JSON. The four artifact files (`report.html`, `run.jsonl`, `trajectories.jsonl`, `run_report.json`) are still written to `--out-dir`; the "Scanned …" line goes to `run.jsonl` only.
+- `--fail-on [none|breaking]` (default `none`, unchanged behaviour) — with `breaking`, the process exits 1 after writing all artifacts if any verification has `breaking > 0`, so a behavioural divergence fails the build.
+
+Default behaviour with neither flag is byte-for-byte unchanged.
+
+**Evidence:** 3 new tests in `tests/test_cli_path.py` — `--json` output parses back into a `RunReport` with all 7 demo findings and contains no `Scanned …` text; `--fail-on breaking` exits 1 on the demo baseline run (which has breaking divergences) while still writing its files; `--fail-on none` (the default) exits 0. The existing `test_default_path_scans_the_demo_and_keeps_the_documented_summary` passes unchanged. `REPRODUCTION.md` gains a "4d. CI usage" section. Full suite: 82 passed; `ruff check .` and `mypy` clean.
+
 ## Main failure mode
 
 The severity model has exactly three verdict buckets (`identical` / `cosmetic` / `breaking`) and, deliberately, no fourth bucket for "breaking because the fix is *supposed* to change this input's behavior." That interpretation lives one layer up, in the report (a heuristic in baseline mode, an LLM sentence in advanced mode) — never inside the trusted verdict itself. On this demo's migration class that's the right call: folding "is this expected" into the ground-truth verdict would mean trusting a heuristic or a model to decide what counts as a bug, which is exactly the kind of unverifiable confidence this project exists to replace. But it does mean the report currently asks a reviewer to read two things together (the verdict, and its interpretation) rather than one, and on a migration class where divergence is never intentional, that second layer would be pure overhead rather than the load-bearing distinction it is here.
