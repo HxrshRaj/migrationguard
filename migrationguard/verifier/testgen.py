@@ -12,7 +12,7 @@ from collections.abc import Callable
 
 from hypothesis import strategies as st
 
-# ~20 fixed adversarial strings, hand-picked for this pattern class: quotes
+# ~27 fixed adversarial strings, hand-picked for this pattern class: quotes
 # (the flagship case), SQL wildcards, injection attempts, unicode, length,
 # and format confusion. This is the entire baseline test budget -- no
 # generation, no shrinking, just this list, applied once per parameter

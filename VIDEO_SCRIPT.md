@@ -10,7 +10,7 @@ copy-paste exact. Total budget is 5:00; the four sections are 0:45 / 1:35 /
 ```bash
 python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -e ".[dev]"
-pytest -q                                           # expect: 72 passed
+pytest -q                                           # expect: 79 passed
 rm -rf out/                                         # start clean so the runs are live on camera
 ```
 
