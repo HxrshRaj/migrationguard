@@ -104,6 +104,9 @@ def analyze_query_expr(expr: ast.expr) -> QueryAnalysis | None:
             return result
 
     if isinstance(expr, ast.Call):
+        result = _analyze_template(expr)
+        if result is not None:
+            return result
         result = _analyze_format(expr)
         if result is not None:
             return result
@@ -219,6 +222,62 @@ def _analyze_concat(expr: ast.BinOp) -> QueryAnalysis | None:
 
 
 _FORMATTER = string.Formatter()
+
+
+def _analyze_template(expr: ast.Call) -> QueryAnalysis | None:
+    """`string.Template("... $name ...").substitute(name=x)` or
+    `.safe_substitute(...)` on a literal template. Returns None if this
+    isn't a `string.Template(...)` substitution call at all (so the caller
+    falls through). Returns a QueryAnalysis with parameterized_sql=None for
+    a recognized-but-not-mechanically-fixable shape: a `**kwargs` splat, a
+    positional mapping arg (`.substitute(d)`), an `$identifier` with no
+    matching keyword argument, or an invalid `$` with no name."""
+    func = expr.func
+    if not isinstance(func, ast.Attribute) or func.attr not in {"substitute", "safe_substitute"}:
+        return None
+
+    template_call = func.value
+    if not (isinstance(template_call, ast.Call) and isinstance(template_call.func, ast.Attribute)):
+        return None
+    if template_call.func.attr != "Template":
+        return None
+    if not (
+        isinstance(template_call.func.value, ast.Name)
+        and template_call.func.value.id == "string"
+    ):
+        return None
+    if not template_call.args or not isinstance(template_call.args[0], ast.Constant):
+        return None
+    template_str = template_call.args[0].value
+    if not isinstance(template_str, str):
+        return None
+
+    if any(kw.arg is None for kw in expr.keywords):  # `.substitute(**kwargs)`
+        return QueryAnalysis(PatternType.TEMPLATE_STRING, None, [])
+    if expr.args:  # positional mapping arg, e.g. `.substitute(mapping)`
+        return QueryAnalysis(PatternType.TEMPLATE_STRING, None, [])
+    kw_args = {kw.arg: kw.value for kw in expr.keywords}
+
+    segments: list[Segment] = []
+    pos = 0
+    for match in string.Template.pattern.finditer(template_str):
+        if match.start() > pos:
+            segments.append(("lit", template_str[pos : match.start()]))
+        escaped, named, braced, invalid = match.groups()
+        if escaped:
+            segments.append(("lit", "$"))
+        elif invalid is not None:  # a `$` not forming a valid placeholder
+            return QueryAnalysis(PatternType.TEMPLATE_STRING, None, [])
+        else:
+            field_name = named or braced
+            if field_name not in kw_args:
+                return QueryAnalysis(PatternType.TEMPLATE_STRING, None, [])
+            segments.append(("param", kw_args[field_name]))
+        pos = match.end()
+    if pos < len(template_str):
+        segments.append(("lit", template_str[pos:]))
+
+    return _segments_to_analysis(segments, PatternType.TEMPLATE_STRING)
 
 
 def _analyze_format(expr: ast.Call) -> QueryAnalysis | None:

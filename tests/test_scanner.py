@@ -65,6 +65,23 @@ def test_flags_str_format_pattern_with_explanation_and_confidence():
     assert 0.0 <= finding.confidence <= 1.0
 
 
+_TEMPLATE_STRING_SRC = (
+    "import string\n"
+    "def lookup_tmpl(conn, name):\n"
+    "    query = string.Template(\"SELECT id FROM users WHERE name = '$name'\").substitute(name=name)\n"
+    "    return conn.execute(query).fetchall()\n"
+)
+
+def test_flags_template_string_pattern_with_explanation_and_confidence():
+    findings = scan_source(_TEMPLATE_STRING_SRC, "inline.py")
+    assert len(findings) == 1
+    (finding,) = findings
+    assert finding.function == "lookup_tmpl"
+    assert finding.pattern_type == PatternType.TEMPLATE_STRING
+    assert finding.risk_explanation
+    assert 0.0 <= finding.confidence <= 1.0
+
+
 def test_flags_a_risky_executemany_call():
     src = (
         "def bulk_tag(conn, tag):\n"

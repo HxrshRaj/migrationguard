@@ -21,6 +21,7 @@ class PatternType(str, Enum):
     FSTRING = "fstring"
     PERCENT_FORMAT = "percent_format"
     FORMAT_METHOD = "format_method"  # "...{}...".format(x) / str.format
+    TEMPLATE_STRING = "template_string"
     CONCAT = "concat"
     UNTRACEABLE = "untraceable"  # execute() called with a variable/expression
     # baseline's inline analyzer cannot reconstruct

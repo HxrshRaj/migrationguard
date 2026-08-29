@@ -7,3 +7,6 @@ dist/
 out/
 .pytest_cache/
 .hypothesis/
+
+# LatentStack agent runner config (contains gateway API key -- never commit)
+latentcode.json
