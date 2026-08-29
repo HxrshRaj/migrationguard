@@ -1,0 +1,78 @@
+# MigrationGuard
+
+**MigrationGuard doesn't migrate your code — it proves whether the migration you already have is safe to ship.**
+
+Built solo for LatentForce.ai's BuildSprint (Aug 28–30, 2026).
+
+## Who this is for
+
+An engineer who just ran an AI coding tool over a legacy codebase — LatentCode or anything else — to modernize it. The migration finished. It compiles. It looks clean. It passes the tests someone thought to write.
+
+## The bottleneck
+
+"Looks right" and "behaves the same" are different claims, and the gap between them is where production incidents live. A migrated function can handle 95% of inputs perfectly and silently diverge on the 5% nobody wrote a test for — a name with an apostrophe, an empty string, a value that used to crash and now doesn't (or the reverse). That kind of bug doesn't show up in code review. It shows up months later, in production, and by then it's expensive to trace back to "the migration."
+
+"Migration complete ✅" is not evidence. It's a claim. MigrationGuard's job is to replace that claim with proof, or with an honest account of exactly where the proof runs out.
+
+## What it does
+
+**Stage 1 — Risk scanning.** Walks a codebase for a specific class of risky pattern, flags every instance, explains in plain language why it's risky, and proposes a fix with a confidence score.
+
+**Stage 2 — Behavioral verification.** For every proposed fix, generates a battery of test inputs — including edge cases a human reviewer is unlikely to think of — and runs the original and the fixed code side by side against every one of them. Any divergence is flagged and classified by severity. This is the part that actually earns the word "proof": not "the new code looks parameterized," but "here are 540 cases where it behaves identically, and here is exactly the one input where it doesn't, shrunk down to the smallest example that still reproduces it."
+
+## This submission's scope
+
+Building a general-purpose migration verifier in 46 hours isn't credible, so this submission targets one narrow, real migration class end to end rather than many classes shallowly: **unsafe, string-formatted SQL query construction → parameterized queries** (f-strings, `%`-formatting, and string concatenation, all landing in a `sqlite3` `execute()`/`executemany()` call). It's demonstrated against a small bundled "legacy" app (`migrationguard/demo/legacy_app.py`) so the whole pipeline — scan, fix, verify, report — runs against real, if intentionally small, code rather than a synthetic example built to make the demo look good.
+
+The architecture doesn't assume this is the only class MigrationGuard will ever check. `fixgen/` is an interface — anything that produces a `FixCandidate` can be verified — deliberately, so the verifier stays useful regardless of what generated the fix: LatentCode, a different tool, or a human. That's also the honest answer to "isn't this just a smaller LatentCode": MigrationGuard doesn't compete with a migration tool, it sits downstream of one and checks its work.
+
+## A note on what "divergence" means here
+
+Because the migration class in this demo is a *security* fix, not a pure refactor, some divergence between the original and fixed code is the point, not a bug: the original code is supposed to behave differently on an input like `O'Brien` or `'; DROP TABLE users; --` once the fix is applied. MigrationGuard's severity verdict (`identical` / `cosmetic` / `breaking`) is a fact about whether behavior changed — it deliberately does not try to guess whether that change was intended. The report adds a separate, clearly-labeled interpretation on top of every non-identical case (a heuristic in baseline mode — does the input contain a SQL metacharacter? — and an LLM-written explanation in advanced mode) to help a reviewer tell "the fix correctly closing a hole" apart from "an actual regression on ordinary input." See `CHANGELOG.md` for why keeping this out of the verdict itself, rather than folding it in, was a deliberate design choice.
+
+## Quickstart
+
+```bash
+pip install -e ".[dev]"
+migrationguard scan --mode baseline
+migrationguard scan --mode advanced --fake-llm   # no API key needed, exercises the full pipeline
+migrationguard scan --mode advanced              # real Claude calls; needs ANTHROPIC_API_KEY
+open out/baseline/report.html                    # or out/advanced/report.html
+```
+
+See `REPRODUCTION.md` for exact commands, expected output, and versions.
+
+## Baseline vs. advanced
+
+| Stage | Baseline | Advanced |
+|---|---|---|
+| Scanner | AST pattern match, canned explanation text | + LLM writes a context-specific explanation and confidence score |
+| Fix generator | Deterministic AST rewrite — fixes what it can prove is safe to rewrite mechanically (5 of 7 findings in the demo) | + LLM rewrite for what the template can't handle (the remaining 2 of 7) — reads the whole function, not one expression |
+| Test generation | ~20 hand-picked adversarial strings, applied per parameter | Hypothesis-generated, type-aware, hundreds of cases, auto-shrunk to a minimal failing example |
+| Severity interpretation | Rule-based heuristic (does the input look adversarial?) | LLM-written rationale per divergence |
+| Verdict itself (`identical`/`cosmetic`/`breaking`) | **Always deterministic, in both modes** — see "A note on what divergence means" above | Same |
+
+## Architecture
+
+```
+demo/  → scanner/  → fixgen/  → verifier/ (testgen → harness → diffengine) → report/
+```
+
+Five modules, each independently testable:
+
+- **`scanner/`** — `ast`-based detection of risky query construction. `queryexpr.py` is the shared AST analysis both the scanner and the baseline fixer depend on, so their classifications never disagree with each other about what's fixable.
+- **`fixgen/`** — `baseline.py` (deterministic rewrite) and `advanced.py` (LLM rewrite with a self-check on the parameter list), behind one interface.
+- **`verifier/`** — the part that most needs to be trustworthy, so it's the most heavily tested. `harness.py` runs original vs. fixed against fresh, isolated in-memory SQLite databases; `diffengine.py` is pure and deterministic (see the note above on why); `testgen.py` builds the input battery for both modes.
+- **`report/`** — renders a single self-contained HTML file, no CDN dependency, so it opens correctly offline.
+- **`orchestrator/`** — the CLI, and the only place that writes `run.jsonl` (structured logs) and `trajectories.jsonl` (every LLM call, disclosed).
+
+## What we're not confident about
+
+- The severity model has three buckets and no fourth "expected due to security fix" bucket at the verdict level — see the note above.
+- The advanced fixer's self-check confirms the parameter *list* is unchanged; it doesn't verify parameter *order semantics* beyond that (a rewrite that swapped two same-typed parameters would pass the self-check and only get caught by the verifier finding the resulting divergence — which it does, but that's a second line of defense, not prevention).
+- `search_users_by_email_domain`'s LLM-generated fix moves the `%` wildcard into the bound parameter (`LIKE ?` with `f"%{domain}"`); this is the standard, correct pattern, but it does mean the fixed function's exact query string differs from a hand-written parameterization someone might have expected.
+- Advanced-mode numbers throughout the reproduction guide were captured with a real `ANTHROPIC_API_KEY`. If the key isn't set at review time, `--fake-llm` reproduces the full pipeline shape but not real model output.
+
+## Agent trajectories
+
+Every LLM call this project makes goes through one client (`migrationguard/llm.py`) and is logged to `trajectories.jsonl` on every advanced-mode run — prompt, response, model, token counts, latency. That file is the disclosed agent-trajectory artifact for this submission; it's produced automatically, never hand-assembled after the fact.

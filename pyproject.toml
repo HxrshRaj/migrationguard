@@ -1,0 +1,30 @@
+[project]
+name = "migrationguard"
+version = "0.1.0"
+description = "A neutral, behavioral verifier for AI-migrated code: proves whether a migration behaves identically to the original, and rates the severity of every place it doesn't."
+requires-python = ">=3.11"
+dependencies = [
+    "pydantic>=2.9,<3",
+    "hypothesis>=6.100,<7",
+    "click>=8.1,<9",
+    "jinja2>=3.1,<4",
+    "anthropic>=0.34,<3",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0,<9",
+]
+
+[project.scripts]
+migrationguard = "migrationguard.orchestrator.cli:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["migrationguard*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
