@@ -18,13 +18,20 @@ An engineer who just ran an AI coding tool over a legacy codebase — LatentCode
 
 **Stage 1 — Risk scanning.** Walks a codebase for a specific class of risky pattern, flags every instance, explains in plain language why it's risky, and proposes a fix with a confidence score.
 
-**Stage 2 — Behavioral verification.** For every proposed fix, generates a battery of test inputs — including edge cases a human reviewer is unlikely to think of — and runs the original and the fixed code side by side against every one of them. Any divergence is flagged and classified by severity. This is the part that actually earns the word "proof": not "the new code looks parameterized," but "here are 540 cases where it behaves identically, and here is exactly the one input where it doesn't, shrunk down to the smallest example that still reproduces it."
+**Stage 2 — Behavioral verification.** For every proposed fix, generates a battery of test inputs — including edge cases a human reviewer is unlikely to think of — and runs the original and the fixed code side by side against every one of them. Any divergence is flagged and classified by severity. This is the part that actually earns the word "proof": not "the new code looks parameterized," but "here are hundreds of cases where it behaves identically, and here is exactly the input where it doesn't, shrunk down to the smallest example that still reproduces it."
 
 ## This submission's scope
 
 Building a general-purpose migration verifier in 46 hours isn't credible, so this submission targets one narrow, real migration class end to end rather than many classes shallowly: **unsafe, string-formatted SQL query construction → parameterized queries** (f-strings, `%`-formatting, `str.format()`, `string.Template`, and string concatenation, all landing in a `sqlite3` `execute()`/`executemany()` call). It's demonstrated against a small bundled "legacy" app (`migrationguard/demo/legacy_app.py`) so the whole pipeline — scan, fix, verify, report — runs against real, if intentionally small, code rather than a synthetic example built to make the demo look good.
 
 The architecture doesn't assume this is the only class MigrationGuard will ever check. `fixgen/` is an interface — anything that produces a `FixCandidate` can be verified — deliberately, so the verifier stays useful regardless of what generated the fix: LatentCode, a different tool, or a human. That's also the honest answer to "isn't this just a smaller LatentCode": MigrationGuard doesn't compete with a migration tool, it sits downstream of one and checks its work.
+
+## Built with LatentCode
+
+LatentCode (LatentForce.ai's coding agent, gateway `latentstack.dev`) shows up in this build in two concrete ways, both visible in git history:
+
+1. **Three merged pull requests, authored by the LatentCode agent.** Each was a scoped task — [#1](https://github.com/HxrshRaj/migrationguard/pull/1) added `string.Template` as a fifth detected SQL pattern, [#2](https://github.com/HxrshRaj/migrationguard/pull/2) added `--json` / `--fail-on` flags for CI use, [#3](https://github.com/HxrshRaj/migrationguard/pull/3) wired LatentCode itself in as a second LLM provider — that the agent implemented and opened as a PR; each was then reviewed (real bugs found and fixed — a leaked config key, a `UnicodeEncodeError`, dead code) before merge. `CHANGELOG.md` entries 16–19 document each one, including the review fixups.
+2. **Advanced mode runs on LatentCode's inference gateway.** `migrationguard scan --mode advanced --provider latentstack` routes every model call (explanation, fix generation, severity rationale) through `latentstack.dev` to `gemini/gemini-3.1-pro`. The one real end-to-end run is fully disclosed at `artifacts/trajectories-latentstack.jsonl` (39 calls) — 7/7 findings auto-fixed, 683 verification cases, ~$0.31, ~7 min. See `REPRODUCTION.md` §4b.
 
 ## A note on what "divergence" means here
 

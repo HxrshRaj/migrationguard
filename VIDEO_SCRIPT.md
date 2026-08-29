@@ -90,8 +90,8 @@ migrationguard scan --mode advanced --provider latentstack \
 > "Advanced mode: every stage that can use a model, does — a
 > context-specific explanation per finding, an LLM rewrite for the two the
 > template declined, a written rationale per divergence. This one ran
-> against the **LatentStack gateway**, model Gemini 3.1 Pro. It takes about
-> seven minutes, so here's the finished result."
+> through **LatentCode's gateway**, model Gemini 3.1 Pro. It's a reasoning
+> model, about seven minutes, so here's the finished result."
 
 **Terminal — the disclosure artifact:**
 
@@ -134,10 +134,11 @@ LatentStack entries (16–19), then "Hot take".
 > too-clean result. That's the argument for this tool, applied to its own
 > code."
 >
-> "Entries 16 through 19 were built with the LatentStack coding agent —
-> three merged PRs adding a fifth detected pattern, CI flags, and
-> LatentStack itself as a second LLM provider — plus the real advanced run
-> above, on the LatentStack gateway."
+> "Entries 16 through 19 were built with **LatentCode's coding agent** — I
+> gave it scoped tasks, it opened pull requests, I reviewed and merged
+> them: a fifth detected pattern, CI flags, and LatentCode itself wired in
+> as a second inference provider. Plus the real advanced run you just saw,
+> on LatentCode's gateway."
 
 ---
 
