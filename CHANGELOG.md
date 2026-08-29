@@ -288,6 +288,16 @@ changelog + hot take) with copy-paste-exact commands and the specific
 
 ---
 
+## 16. `string.Template` added as a fifth detected pattern
+
+*Drafted by the LatentStack coding agent (`gemini/gemini-3.1-pro` via the LatentStack gateway), on a scoped task; reviewed, tidied, and verified here before merge — one dead `try/except` and a committed runner-config file with a secret were removed, see below.*
+
+`string.Template("... $name ...").substitute(name=x)` / `.safe_substitute(...)` is a real, if less common, string-formatted-SQL shape — the scanner previously only caught it as the `UNTRACEABLE` catch-all. `queryexpr._analyze_template()` now walks `string.Template.pattern` over a literal template, maps each `$name` / `${name}` field back to its `substitute()` keyword argument in *placeholder* order, and feeds the result through the same `(literal, param)` segment machinery as the other four patterns — so the quote-stripping fix (entry #2) and the asymmetric-quote refusal apply for free. Recognised-but-not-mechanically-fixable shapes (`**kwargs` splat, a positional mapping arg `.substitute(d)`, an `$identifier` with no matching kwarg, an invalid bare `$`) come back classified `template_string` with `parameterized_sql=None` rather than mis-rewritten. `PatternType.TEMPLATE_STRING` + canned explanation + 0.9 confidence wired into `models.py` / `detector.py`; demo app untouched, so all documented numbers hold.
+
+**Review fixups before merge:** the agent's draft (a) committed `latentcode.json` — its own gateway runner config, *including the live API key and org id* — which was removed and added to `.gitignore` (the key was rotated); and (b) carried a dead `parsed = string.Template(...).pattern.findall(...)` line inside a `try/except ValueError` that can't fire (`ruff` `F841`), removed. Net logic unchanged from the agent's intent.
+
+**Evidence:** 7 new tests — `tests/test_queryexpr.py` ×6 (quoted `$name` strips quotes, `${name}` brace form, two fields binding in *template* order not kwarg order, `.safe_substitute`, a `.substitute(d)` mapping call classified unfixable, a non-literal-template call falling through to `UNTRACEABLE`) and `tests/test_scanner.py` ×1 (end-to-end: flagged as `template_string` with explanation + confidence, no `KeyError`). Full suite: 79 passed; `ruff check .` and `mypy` clean.
+
 ## Main failure mode
 
 The severity model has exactly three verdict buckets (`identical` / `cosmetic` / `breaking`) and, deliberately, no fourth bucket for "breaking because the fix is *supposed* to change this input's behavior." That interpretation lives one layer up, in the report (a heuristic in baseline mode, an LLM sentence in advanced mode) — never inside the trusted verdict itself. On this demo's migration class that's the right call: folding "is this expected" into the ground-truth verdict would mean trusting a heuristic or a model to decide what counts as a bug, which is exactly the kind of unverifiable confidence this project exists to replace. But it does mean the report currently asks a reviewer to read two things together (the verdict, and its interpretation) rather than one, and on a migration class where divergence is never intentional, that second layer would be pure overhead rather than the load-bearing distinction it is here.

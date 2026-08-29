@@ -36,6 +36,12 @@ _EXPLANATIONS: dict[PatternType, str] = {
         "wildcards, and keywords in that value are parsed as SQL, not "
         "treated as data. It has the same risk as f-string interpolation."
     ),
+    PatternType.TEMPLATE_STRING: (
+        "This query is built with string.Template substitution, so the "
+        "interpolated values are spliced directly into the SQL text "
+        "instead of being passed as separate parameters, creating the same "
+        "vulnerability as an f-string."
+    ),
     PatternType.CONCAT: (
         "This query is assembled with string concatenation. Every "
         "concatenated value is exposed to the SQL parser as literal text, "
@@ -54,6 +60,7 @@ _BASELINE_CONFIDENCE: dict[PatternType, float] = {
     PatternType.FSTRING: 0.9,
     PatternType.PERCENT_FORMAT: 0.9,
     PatternType.FORMAT_METHOD: 0.9,
+    PatternType.TEMPLATE_STRING: 0.9,
     PatternType.CONCAT: 0.9,
     PatternType.UNTRACEABLE: 0.55,
 }

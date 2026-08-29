@@ -156,6 +156,45 @@ def test_implicitly_concatenated_fstring_parts_are_one_joinedstr():
     assert len(analysis.param_exprs) == 2
 
 
+# --- string.Template ------------------------------------------------------
+
+
+def test_template_quoted_name_strips_quotes():
+    analysis = analyze_query_expr(_expr("string.Template(\"WHERE name = '$name'\").substitute(name=x)"))
+    assert analysis.pattern_type == PatternType.TEMPLATE_STRING
+    assert analysis.parameterized_sql == "WHERE name = ?"
+    assert len(analysis.param_exprs) == 1
+    assert analysis.param_exprs[0].id == "x"
+
+def test_template_brace_form():
+    analysis = analyze_query_expr(_expr("string.Template(\"WHERE role = '${role}'\").substitute(role=r)"))
+    assert analysis.pattern_type == PatternType.TEMPLATE_STRING
+    assert analysis.parameterized_sql == "WHERE role = ?"
+    assert len(analysis.param_exprs) == 1
+    assert analysis.param_exprs[0].id == "r"
+
+def test_template_two_fields_bind_in_template_order():
+    analysis = analyze_query_expr(_expr("string.Template(\"WHERE a = '$a' AND b = '$b'\").substitute(b=y, a=x)"))
+    assert analysis.pattern_type == PatternType.TEMPLATE_STRING
+    assert analysis.parameterized_sql == "WHERE a = ? AND b = ?"
+    assert [p.id for p in analysis.param_exprs] == ["x", "y"]
+
+def test_template_safe_substitute():
+    analysis = analyze_query_expr(_expr("string.Template(\"WHERE name = '$name'\").safe_substitute(name=x)"))
+    assert analysis.pattern_type == PatternType.TEMPLATE_STRING
+    assert analysis.parameterized_sql == "WHERE name = ?"
+    assert len(analysis.param_exprs) == 1
+
+def test_template_mapping_dict_is_recognized_but_unfixable():
+    analysis = analyze_query_expr(_expr("string.Template(\"WHERE id = '$id'\").substitute(d)"))
+    assert analysis.pattern_type == PatternType.TEMPLATE_STRING
+    assert analysis.parameterized_sql is None
+
+def test_template_non_literal_template_is_untraceable():
+    analysis = analyze_query_expr(_expr("tmpl.substitute(x=1)"))
+    assert analysis.pattern_type == PatternType.UNTRACEABLE
+    assert analysis.parameterized_sql is None
+
 def test_resolve_single_assignment():
     func = ast.parse(
         "def f(conn, name):\n"
