@@ -117,3 +117,28 @@ def test_path_to_a_single_file_works_and_is_not_disambiguated(tmp_path):
     report = _load_report(out)
     assert len(report.findings) == 1
     assert "::" not in report.findings[0].id  # single file -> clean id
+
+def test_json_flag_prints_valid_json_and_suppresses_summary(tmp_path):
+    result = _run("--mode", "baseline", "--out-dir", str(tmp_path), "--json")
+    assert result.exit_code == 0, result.output
+    # Must not contain the human summary
+    assert "Scanned migrationguard/demo/legacy_app.py" not in result.output
+    
+    # Must be valid parseable JSON for a RunReport
+    import json
+    parsed = json.loads(result.output)
+    report = RunReport.model_validate(parsed)
+    assert len(report.findings) == 7
+
+def test_fail_on_breaking_gives_exit_code_1_for_demo(tmp_path):
+    # The bundled demo app has breaking divergences
+    result = _run("--mode", "baseline", "--out-dir", str(tmp_path), "--fail-on", "breaking")
+    assert result.exit_code == 1, result.output
+    assert "Scanned migrationguard/demo/legacy_app.py" in result.output
+
+def test_fail_on_none_gives_exit_code_0_for_demo(tmp_path):
+    # Default behavior should be exit code 0 even with breaking divergences
+    result = _run("--mode", "baseline", "--out-dir", str(tmp_path))
+    assert result.exit_code == 0, result.output
+    assert "Scanned migrationguard/demo/legacy_app.py" in result.output
+
