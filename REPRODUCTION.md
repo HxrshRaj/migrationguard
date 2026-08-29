@@ -1,31 +1,37 @@
 # Reproduction Guide
 
-Tested on Python 3.11.15, Linux. No external services required for baseline mode or `--fake-llm`; advanced mode needs network access to `api.anthropic.com` and an API key.
+Requires Python ≥ 3.11. Verified on 3.11 (Linux and Windows 11) and 3.12 (CI). No external services required for baseline mode or `--fake-llm`; advanced mode needs network access to `api.anthropic.com` and an API key.
 
-## 0. Versions this was built and verified against
+## 0. Versions this pass was verified against
+
+The exact resolved versions on the clean-environment pass (Python 3.11.9, Windows). `pip install -e ".[dev]"` resolves the latest release inside each `pyproject.toml` range, so yours may differ slightly — the pinned ranges, not these exact patch versions, are the contract.
 
 ```
-Python    3.11.15
-pydantic  2.13.3
+Python     3.11.9
+pydantic   2.13.5
 hypothesis 6.165.10
-click     8.3.3
-Jinja2    3.1.6
-anthropic 1.2.0
-pytest    9.1.1
+click      8.5.0
+Jinja2     3.1.6
+anthropic  1.2.0
+pytest     8.4.2
+ruff       0.15.x     (dev)
+mypy       (latest)   (dev)
 ```
 
-Nothing else — no database server, no Docker, no network access required except for the real-Claude advanced run in step 4.
+Nothing else — no database server, no Docker, no network access required except for the real-Claude advanced run in step 4b.
 
 ## 1. Clean environment setup
 
 ```bash
 git clone <this repo's url> migrationguard
 cd migrationguard
-python3 -m venv .venv && source .venv/bin/activate
+python3 -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -e ".[dev]"
 ```
 
-**Expected:** installs in well under a minute — the only third-party dependencies are pydantic, hypothesis, click, Jinja2, and anthropic (the last one is only *called* in advanced mode, but is always installed).
+**Expected:** installs in well under a minute — the third-party dependencies are pydantic, hypothesis, click, Jinja2, and anthropic (the last one is only *called* in advanced mode, but is always installed), plus ruff and mypy for the dev extra.
+
+> **Windows note:** the `anthropic` package ships some very deeply-nested file paths. If `pip install` fails with `OSError: [Errno 2] No such file or directory: ...beta_managed_agents_...py`, enable Long Path support (`git config --system core.longpaths true` is not enough — set the `LongPathsEnabled` registry key / group policy) or clone to a short path such as `C:\src\migrationguard`. Linux/macOS are unaffected.
 
 ## 2. Run the test suite
 

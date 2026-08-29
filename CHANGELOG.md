@@ -254,6 +254,38 @@ no issues found in 25 source files"; `pytest -q` → 72 passed. No
 behavioural test change — this entry is hygiene, and the autofixes are
 covered by the existing suite staying green.
 
+## 15. Clean-room reproduction pass + doc reconciliation
+
+Ran `REPRODUCTION.md` end to end from a fresh `git clone` into a new
+`venv` (Python 3.11.9, Windows):
+
+| Step | Guide says | Actual |
+|---|---|---|
+| `pytest -q` | 72 passed | 72 passed |
+| `ruff check .` | passes | "All checks passed!" |
+| `mypy` | passes | "Success: no issues found in 25 source files" |
+| baseline scan | `7 finding(s), 5 auto-fixed`; report 167 / 129 / 0 / 38 | exact match |
+| advanced `--fake-llm` | `7 finding(s), 7 auto-fixed` | exact match |
+
+Fixes from what didn't match:
+
+- `REPRODUCTION.md` §0 listed exact patch versions (`Python 3.11.15`,
+  `pytest 9.1.1`, …) that no longer resolve — and `pytest 9.1.1` never
+  could, since `pyproject.toml` pins `pytest<9`. §0 now shows the versions
+  this pass actually resolved and states that the `pyproject` ranges, not
+  the patch numbers, are the contract.
+- Added a Windows long-path caveat: `anthropic`'s deeply-nested files
+  overflow `MAX_PATH` when the clone sits under a long parent directory
+  (hit this during the pass); documented the workaround.
+- `pytest` count / runtime and the baseline `125 / 92 / 33` → `167 / 129
+  / 38` change were already reconciled in entries 10 and 13; this pass
+  confirmed the numbers on a clean checkout.
+
+Also added `VIDEO_SCRIPT.md` — a timestamped ≤5:00 storyboard (0:45
+problem / 1:35 baseline + report / 1:35 advanced + diff / 0:45
+changelog + hot take) with copy-paste-exact commands and the specific
+`report.html` sections to point at, plus a no-API-key fallback path.
+
 ---
 
 ## Main failure mode
