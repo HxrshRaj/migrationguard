@@ -40,6 +40,7 @@ def generate_fix(source: str, finding: RiskFinding) -> FixCandidate:
 
     fixed_func = copy.deepcopy(func_node)
     fixed_call = _find_execute_call_at_line(fixed_func, finding.line)
+    assert fixed_call is not None  # a deepcopy of func_node, where we just found it
     assign_stmt = find_single_assign(fixed_func, call_node.args[0])
     if assign_stmt is not None:
         fixed_func.body.remove(assign_stmt)

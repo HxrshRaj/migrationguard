@@ -2,7 +2,19 @@
 name = "migrationguard"
 version = "0.1.0"
 description = "A neutral, behavioral verifier for AI-migrated code: proves whether a migration behaves identically to the original, and rates the severity of every place it doesn't."
+readme = "README.md"
 requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "MigrationGuard authors", email = "hraj15709@gmail.com" }]
+keywords = ["sql-injection", "code-migration", "verification", "ast", "hypothesis", "static-analysis"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Software Development :: Quality Assurance",
+    "Topic :: Security",
+]
 dependencies = [
     "pydantic>=2.9,<3",
     "hypothesis>=6.100,<7",
@@ -14,6 +26,8 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "pytest>=8.0,<9",
+    "ruff>=0.6",
+    "mypy>=1.11",
 ]
 
 [project.scripts]
@@ -28,3 +42,38 @@ include = ["migrationguard*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+# E/F (pyflakes+pycodestyle), I (isort), B (bugbear), UP (pyupgrade),
+# SIM (simplify), C4 (comprehensions).
+select = ["E", "F", "I", "B", "UP", "SIM", "C4"]
+ignore = [
+    "E501",   # long lines: the report template and some docstrings run long on purpose
+    "SIM105", # `contextlib.suppress` over try/except/pass -- try/except reads clearer here
+    "UP042",  # `class X(str, Enum)` is deliberate (str-mixin __str__), not StrEnum
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["B011"]
+# The demo app deliberately contains bad-practice string-formatted SQL --
+# that IS the code under test. Don't lint its anti-patterns away.
+"migrationguard/demo/legacy_app.py" = ["UP031", "UP032"]
+
+[tool.mypy]
+python_version = "3.11"
+files = ["migrationguard"]
+warn_unused_ignores = true
+warn_redundant_casts = true
+no_implicit_optional = true
+# Pragmatic: the codebase isn't fully annotated and this is a hackathon
+# submission, so don't require annotations everywhere -- but do check the
+# annotations that exist, and flag obvious type errors.
+check_untyped_defs = true
+
+[[tool.mypy.overrides]]
+module = ["anthropic.*", "hypothesis.*"]
+ignore_missing_imports = true

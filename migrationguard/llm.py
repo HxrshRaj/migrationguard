@@ -12,10 +12,11 @@ import os
 import random
 import time
 import uuid
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Callable, Optional, Protocol
+from typing import Any, Protocol
 
 from migrationguard.models import LLMTrajectory
 
@@ -73,8 +74,8 @@ class AnthropicLLMClient:
     max_attempts: int = 5
     base_delay: float = 1.0
     max_delay: float = 30.0
-    client: Optional[object] = None  # injectable for tests; real client built if None
-    _client: object = field(init=False, repr=False)
+    client: Any = None  # injectable transport for tests; real client built if None
+    _client: Any = field(init=False, repr=False)
     failures: list[str] = field(init=False, default_factory=list, repr=False)
 
     def __post_init__(self) -> None:
@@ -110,7 +111,7 @@ class AnthropicLLMClient:
     def complete(self, *, stage: str, system: str, prompt: str) -> str:
         call_id = str(uuid.uuid4())[:8]
         start = time.perf_counter()
-        last_exc: Optional[Exception] = None
+        last_exc: Exception | None = None
 
         for attempt in range(1, self.max_attempts + 1):
             try:
@@ -170,8 +171,8 @@ class AnthropicLLMClient:
         stage: str,
         prompt: str,
         response: str,
-        input_tokens: Optional[int],
-        output_tokens: Optional[int],
+        input_tokens: int | None,
+        output_tokens: int | None,
         latency_ms: float,
     ) -> None:
         self.trajectory_log.record(
@@ -184,7 +185,7 @@ class AnthropicLLMClient:
                 input_tokens=input_tokens,
                 output_tokens=output_tokens,
                 latency_ms=latency_ms,
-                timestamp=datetime.now(timezone.utc).isoformat(),
+                timestamp=datetime.now(UTC).isoformat(),
             )
         )
 
@@ -212,7 +213,7 @@ class FakeLLMClient:
                 model=self.model,
                 prompt=prompt,
                 response=text,
-                timestamp=datetime.now(timezone.utc).isoformat(),
+                timestamp=datetime.now(UTC).isoformat(),
             )
         )
         return text

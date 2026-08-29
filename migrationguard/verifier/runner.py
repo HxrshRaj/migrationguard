@@ -10,9 +10,10 @@ in the report.
 """
 from __future__ import annotations
 
-from typing import Callable
+from collections.abc import Callable
 
-from hypothesis import HealthCheck, given, seed as hyp_seed, settings
+from hypothesis import HealthCheck, given, settings
+from hypothesis import seed as hyp_seed
 
 from migrationguard.models import Mode, Severity, TestCaseResult, VerificationResult
 from migrationguard.verifier.diffengine import classify
@@ -82,7 +83,7 @@ def verify_advanced(
     strategy = strategy_for_signature(original_func)
     results: list[TestCaseResult] = []
     counts = {Severity.IDENTICAL: 0, Severity.COSMETIC: 0, Severity.BREAKING: 0}
-    state = {"minimal_failing": None}
+    state: dict[str, str | None] = {"minimal_failing": None}
 
     @settings(
         max_examples=max_examples,

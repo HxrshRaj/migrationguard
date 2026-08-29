@@ -14,7 +14,6 @@ from __future__ import annotations
 
 import sqlite3
 
-from migrationguard.demo import legacy_app
 from migrationguard.models import Severity
 from migrationguard.verifier.harness import load_function
 from migrationguard.verifier.runner import verify_advanced, verify_baseline

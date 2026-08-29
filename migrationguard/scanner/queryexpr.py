@@ -14,11 +14,14 @@ import ast
 import re
 import string
 from dataclasses import dataclass, field
+from typing import Any
 
 from migrationguard.models import PatternType
 
 # A ("lit", text) or ("param", expr) piece of a query being reconstructed.
-Segment = tuple[str, object]
+# The second slot is deliberately heterogeneous: a str for "lit", an
+# ast.expr for "param".
+Segment = tuple[str, Any]
 
 
 @dataclass
@@ -32,22 +35,19 @@ class QueryAnalysis:
     param_exprs: list[ast.expr] = field(default_factory=list)  # in bind order
 
 
+def _assigns_to_name(stmt: ast.Assign | ast.AugAssign, name: str) -> bool:
+    """True if stmt binds `name` -- either `name = ...` or `name += ...`."""
+    if isinstance(stmt, ast.Assign):
+        return any(isinstance(t, ast.Name) and t.id == name for t in stmt.targets)
+    return isinstance(stmt.target, ast.Name) and stmt.target.id == name
+
+
 def _collect_name_assignments(func_node: ast.FunctionDef, name: str) -> list[ast.stmt]:
-    assigns: list[ast.stmt] = []
-    for stmt in ast.walk(func_node):
-        if stmt is func_node:
-            continue
-        if isinstance(stmt, ast.Assign) and any(
-            isinstance(t, ast.Name) and t.id == name for t in stmt.targets
-        ):
-            assigns.append(stmt)
-        elif (
-            isinstance(stmt, ast.AugAssign)
-            and isinstance(stmt.target, ast.Name)
-            and stmt.target.id == name
-        ):
-            assigns.append(stmt)
-    return assigns
+    return [
+        stmt
+        for stmt in ast.walk(func_node)
+        if isinstance(stmt, (ast.Assign, ast.AugAssign)) and _assigns_to_name(stmt, name)
+    ]
 
 
 def resolve_query_arg(func_node: ast.FunctionDef, arg: ast.expr) -> ast.expr:
@@ -182,7 +182,7 @@ def _analyze_percent(expr: ast.BinOp) -> QueryAnalysis | None:
 
     segments: list[Segment] = []
     pos = 0
-    for match, param in zip(matches, params_src):
+    for match, param in zip(matches, params_src, strict=True):  # lengths checked equal above
         if match.start() > pos:
             segments.append(("lit", template[pos : match.start()]))
         segments.append(("param", param))

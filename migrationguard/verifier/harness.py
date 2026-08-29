@@ -10,7 +10,7 @@ calls, so no test case can ever see state left behind by another.
 from __future__ import annotations
 
 import sqlite3
-from typing import Callable
+from collections.abc import Callable
 
 from migrationguard.demo.fixtures import make_db
 from migrationguard.models import Behavior

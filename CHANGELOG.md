@@ -214,6 +214,46 @@ with `[] == []`), `tests/test_report_generator.py` (new, 3: empty
 `RunReport` renders, run-level notes surface, the expectedness heuristic).
 Full suite: 72 passed.
 
+## 14. Lint, type-check, CI, license
+
+`ruff` and `mypy` added as dev dependencies and **run to green**, not
+just configured:
+
+- `ruff check .` — `E/F/I/B/UP/SIM/C4`. 37 findings auto-fixed
+  (`timezone.utc` → `datetime.UTC`, `Optional[X]` → `X | None`,
+  `typing.Callable` → `collections.abc.Callable`, unsorted imports,
+  unused test imports); the two that weren't are handled honestly rather
+  than suppressed blindly — `zip(..., strict=True)` where lengths are
+  already checked equal, and a per-file ignore for
+  `demo/legacy_app.py`'s deliberately bad `% `-formatted SQL (that string
+  formatting *is* the code under test). `UP042` (`StrEnum`) is ignored
+  project-wide: the `class X(str, Enum)` form is deliberate.
+- `mypy` (`check_untyped_defs`, `no_implicit_optional`) — 16 errors
+  surfaced, all fixed at the source: a real latent one (a second
+  `_find_execute_call_at_line` result used without its `None` guard in
+  `fixgen/baseline.py`, now `assert`-documented), a heterogeneous
+  `Segment` tuple alias pinned to `tuple[str, Any]` with a comment
+  explaining why, `state: dict[str, str | None]` in `runner.py`, an
+  `LLMClient | None` annotation plus `assert llm is not None` at the two
+  advanced-only call sites, and one narrowly-scoped `# type: ignore` on a
+  Hypothesis `exclude_categories` kwarg the stub over-constrains. The
+  config is pragmatic by intent (documented in `pyproject.toml`): check
+  what's annotated, don't demand annotations everywhere.
+
+`.github/workflows/ci.yml` runs lint + type-check + tests on push and PR
+across Python 3.11 and 3.12. `LICENSE` added (MIT); `pyproject.toml`
+gains `authors`, `license`, `readme`, `keywords`, `classifiers`.
+
+A grep for stray `print(` across `migrationguard/` came back clean — the
+only hit is the word "print()" inside a docstring; all user-facing output
+already goes through `click.echo` (the CLI summary) or the structured
+`run.jsonl` logger.
+
+**Evidence:** `ruff check .` → "All checks passed!"; `mypy` → "Success:
+no issues found in 25 source files"; `pytest -q` → 72 passed. No
+behavioural test change — this entry is hygiene, and the autofixes are
+covered by the existing suite staying green.
+
 ---
 
 ## Main failure mode

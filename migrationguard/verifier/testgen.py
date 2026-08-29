@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import inspect
 import typing
-from typing import Callable
+from collections.abc import Callable
 
 from hypothesis import strategies as st
 
@@ -99,7 +99,7 @@ def strategy_for(annotation: type) -> st.SearchStrategy:
     # code (get_user_by_id_unsafe) is actually still string-shaped once a
     # caller hands it a string -- so untyped defaults to text, not int.
     adversarial_chars = st.characters(
-        blacklist_categories=("Cs",),  # exclude lone surrogates
+        exclude_categories=("Cs",),  # type: ignore[arg-type]  # exclude lone surrogates
         min_codepoint=0x20,
         max_codepoint=0x2764,
     )

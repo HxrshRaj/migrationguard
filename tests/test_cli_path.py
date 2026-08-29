@@ -6,8 +6,6 @@ documents; everything else is additive.
 """
 from __future__ import annotations
 
-import json
-
 from click.testing import CliRunner
 
 from migrationguard.models import RunReport

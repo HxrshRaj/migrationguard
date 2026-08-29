@@ -8,7 +8,7 @@ from __future__ import annotations
 import ast
 import os
 import sqlite3
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import click
@@ -17,7 +17,12 @@ from migrationguard.cost import estimate_run_cost, format_cost_summary
 from migrationguard.demo import legacy_app
 from migrationguard.fixgen import advanced as fixgen_advanced
 from migrationguard.fixgen import baseline as fixgen_baseline
-from migrationguard.llm import AnthropicLLMClient, FakeLLMClient, TrajectoryLog
+from migrationguard.llm import (
+    AnthropicLLMClient,
+    FakeLLMClient,
+    LLMClient,
+    TrajectoryLog,
+)
 from migrationguard.logging_setup import configure_logging
 from migrationguard.models import FixCandidate, Mode, RunReport, VerificationResult
 from migrationguard.report.generator import render_report
@@ -130,7 +135,7 @@ def scan(
     findings = all_findings
     logger.info(f"scanner found {len(findings)} risky pattern(s) across {len(source_by_file)} file(s)")
 
-    llm = None
+    llm: LLMClient | None = None
     if mode_enum == Mode.ADVANCED:
         llm = (
             FakeLLMClient(trajectory_log, responder=_fake_responder)
@@ -153,6 +158,7 @@ def scan(
         source = source_by_file[finding.file]
         fix = fixgen_baseline.generate_fix(source, finding)
         if mode_enum == Mode.ADVANCED and not fix.success:
+            assert llm is not None  # always constructed in advanced mode
             logger.info(
                 f"{finding.function}: baseline template couldn't fix it "
                 f"({fix.failure_reason}) -- escalating to the LLM fixer"
@@ -180,12 +186,14 @@ def scan(
             )
             continue
 
+        assert fix.fixed_source is not None  # success == fixed_source is set
         original_func = getattr(legacy_app, finding.function)
         fixed_func = load_function(fix.fixed_source, finding.function, {"sqlite3": sqlite3})
 
         if mode_enum == Mode.BASELINE:
             result = verify_baseline(finding.id, original_func, fixed_func)
         else:
+            assert llm is not None  # always constructed in advanced mode
             result = verify_advanced(
                 finding.id, original_func, fixed_func, max_examples=max_examples, seed=seed
             )
@@ -218,7 +226,7 @@ def scan(
     report = RunReport(
         mode=mode_enum,
         file=scan_label,
-        generated_at=datetime.now(timezone.utc).isoformat(),
+        generated_at=datetime.now(UTC).isoformat(),
         findings=findings,
         fixes=fixes,
         verifications=verifications,

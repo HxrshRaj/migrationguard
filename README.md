@@ -88,3 +88,18 @@ Five modules, each independently testable:
 ## Agent trajectories
 
 Every LLM call this project makes goes through one client (`migrationguard/llm.py`) and is logged to `trajectories.jsonl` on every advanced-mode run — prompt, response, model, token counts, latency. That file is the disclosed agent-trajectory artifact for this submission; it's produced automatically, never hand-assembled after the fact.
+
+## Development
+
+```bash
+pip install -e ".[dev]"
+pytest -q          # test suite
+ruff check .       # lint
+mypy               # type-check
+```
+
+`.github/workflows/ci.yml` runs all three on push and PR, against Python 3.11 and 3.12. `ruff` and `mypy` are both clean; the config (`pyproject.toml`) is deliberately pragmatic rather than maximally strict — see the comments there.
+
+## License
+
+MIT — see [`LICENSE`](LICENSE). (Copyright line reads "MigrationGuard authors"; set your own name there before publishing.)

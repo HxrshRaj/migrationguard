@@ -7,7 +7,7 @@ final report trustworthy: every object on disk has a validated shape.
 from __future__ import annotations
 
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -43,10 +43,10 @@ class FixCandidate(BaseModel):
     function: str
     strategy: str  # "template" | "llm"
     success: bool
-    fixed_source: Optional[str] = None
+    fixed_source: str | None = None
     rationale: str
     confidence: float = Field(ge=0.0, le=1.0)
-    failure_reason: Optional[str] = None
+    failure_reason: str | None = None
 
 
 class Severity(str, Enum):
@@ -69,11 +69,11 @@ class Behavior(BaseModel):
     """
 
     return_value: Any = None
-    row_count_after: Optional[int] = None
-    exception_type: Optional[str] = None
-    exception_message: Optional[str] = None
+    row_count_after: int | None = None
+    exception_type: str | None = None
+    exception_message: str | None = None
 
-    def effect_equal(self, other: "Behavior") -> bool:
+    def effect_equal(self, other: Behavior) -> bool:
         """True when the *observable effect* matches -- same return value,
         same row count, same exception class. Deliberately ignores
         exception message text, which alone is a cosmetic difference."""
@@ -89,7 +89,7 @@ class TestCaseResult(BaseModel):
     original_behavior: Behavior
     fixed_behavior: Behavior
     severity: Severity
-    rationale: Optional[str] = None  # advanced-mode: LLM-written, human-facing
+    rationale: str | None = None  # advanced-mode: LLM-written, human-facing
     # explanation of *why* this severity -- never overrides the verdict above
 
 
@@ -101,7 +101,7 @@ class VerificationResult(BaseModel):
     identical: int
     cosmetic: int
     breaking: int
-    minimal_failing_example: Optional[str] = None
+    minimal_failing_example: str | None = None
     cases: list[TestCaseResult] = Field(default_factory=list)
 
 
@@ -128,7 +128,7 @@ class LLMTrajectory(BaseModel):
     model: str
     prompt: str
     response: str
-    input_tokens: Optional[int] = None
-    output_tokens: Optional[int] = None
-    latency_ms: Optional[float] = None
+    input_tokens: int | None = None
+    output_tokens: int | None = None
+    latency_ms: float | None = None
     timestamp: str
