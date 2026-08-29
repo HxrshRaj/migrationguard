@@ -65,6 +65,32 @@ def test_flags_str_format_pattern_with_explanation_and_confidence():
     assert 0.0 <= finding.confidence <= 1.0
 
 
+def test_flags_a_risky_executemany_call():
+    src = (
+        "def bulk_tag(conn, tag):\n"
+        "    conn.executemany(\n"
+        "        f\"UPDATE users SET tag = '{tag}' WHERE id = ?\", [(1,), (2,)]\n"
+        "    )\n"
+    )
+    findings = scan_source(src, "inline.py")
+    assert len(findings) == 1
+    assert findings[0].pattern_type == PatternType.FSTRING
+    assert findings[0].line == 2  # the executemany( call site
+
+
+def test_triple_quoted_fstring_query_is_flagged():
+    src = (
+        "def report(conn, since):\n"
+        "    q = f'''\n"
+        "        SELECT * FROM events\n"
+        "        WHERE created_at > '{since}'\n"
+        "    '''\n"
+        "    return conn.execute(q).fetchall()\n"
+    )
+    findings = scan_source(src, "inline.py")
+    assert [f.pattern_type for f in findings] == [PatternType.FSTRING]
+
+
 def test_no_false_positive_on_format_call_that_is_not_str_format():
     # `.format()` on something that isn't a string literal template is not
     # a string-formatting SQL pattern this analyzer can reason about; it

@@ -38,6 +38,13 @@ CURATED_STRINGS: list[str] = [
     "-- comment",  # SQL line-comment marker
     "/* block */",  # SQL block-comment marker
     "back\\slash",  # backslash
+    "''",  # doubled single quote -- SQL's own quote-escaping sequence
+    "?",  # a literal question mark -- bind-placeholder confusion
+    "{}",  # str.format field braces -- format-confusion
+    "%s",  # a %-format token -- format-confusion
+    "NULL",  # the SQL NULL keyword as a string
+    "5 > 3 OR 1=1",  # a boolean expression, no quote/keyword metacharacters
+    "line1\r\nline2",  # CRLF, not just \n
 ]
 
 BENIGN_DEFAULT = "safe_value"

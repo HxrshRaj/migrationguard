@@ -136,6 +136,26 @@ def test_format_on_non_literal_template_is_untraceable():
     assert analysis.parameterized_sql is None
 
 
+def test_triple_quoted_fstring_is_analyzed_like_any_other_fstring():
+    src = 'f"""\n    SELECT * FROM users\n    WHERE name = \'{name}\'\n    """'
+    analysis = analyze_query_expr(_expr(src))
+    assert analysis.pattern_type == PatternType.FSTRING
+    assert analysis.parameterized_sql is not None
+    assert "?" in analysis.parameterized_sql
+    assert "{name}" not in analysis.parameterized_sql
+    assert len(analysis.param_exprs) == 1
+
+
+def test_implicitly_concatenated_fstring_parts_are_one_joinedstr():
+    # Python fuses adjacent string literals at parse time; a query split
+    # across lines this way is still a single f-string node.
+    src = "(\n  f\"SELECT * FROM users \"\n  f\"WHERE name = '{name}' AND role = '{role}'\"\n)"
+    analysis = analyze_query_expr(_expr(src))
+    assert analysis.pattern_type == PatternType.FSTRING
+    assert analysis.parameterized_sql == "SELECT * FROM users WHERE name = ? AND role = ?"
+    assert len(analysis.param_exprs) == 2
+
+
 def test_resolve_single_assignment():
     func = ast.parse(
         "def f(conn, name):\n"

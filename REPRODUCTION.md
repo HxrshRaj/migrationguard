@@ -36,11 +36,11 @@ pytest -q
 **Expected output:**
 
 ```
-................................                                       [100%]
-32 passed in ~1-2s
+........................................................................ [100%]
+72 passed
 ```
 
-If this doesn't pass, nothing downstream should be trusted — this is the step the whole project's credibility rests on. See `CHANGELOG.md` for what these tests were built to catch.
+Runtime is a few seconds on Linux; on a cold Windows checkout it's ~1–2 minutes (process-spawn overhead plus Hypothesis's shrink phase — not a problem, just slower). If any test fails, nothing downstream should be trusted — this is the step the whole project's credibility rests on. See `CHANGELOG.md` for what these tests were built to catch (the original 32, plus the post-submission additions in entries 9–13).
 
 ## 3. Baseline run (no API key, no network)
 
@@ -57,7 +57,7 @@ Run log:     out/baseline/run.jsonl
 Trajectories:out/baseline/trajectories.jsonl
 ```
 
-`out/baseline/report.html` should show: 7 findings, 5 auto-fixed, 125 test cases run, 92 identical, 0 cosmetic, 33 breaking. `out/baseline/trajectories.jsonl` should exist and be empty (baseline mode makes no LLM calls). **Runtime: well under a second.**
+`out/baseline/report.html` should show: 7 findings, 5 auto-fixed, 167 test cases run, 129 identical, 0 cosmetic, 38 breaking. (These went up from 125 / 92 / 33 when the curated adversarial-input list grew from 20 strings to 27 — see `CHANGELOG.md` entry 13. Still fully deterministic.) `out/baseline/trajectories.jsonl` should exist and be empty (baseline mode makes no LLM calls). **Runtime: well under a second.**
 
 ## 4a. Advanced run — dry run, no API key
 

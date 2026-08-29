@@ -182,6 +182,38 @@ raises `LLMCallError` on the first attempt; and `_classify()` maps real
 `BadRequestError` / `AuthenticationError` instances to
 retry / retry / retry / degrade / raise respectively.
 
+## 13. Wider edge-case coverage: curated inputs, source shapes, empty runs
+
+The curated adversarial-string list in `verifier/testgen.py` grew from 20
+to 27, adding seven axes it was missing: the SQL quote-escaping sequence
+`''`, a bare `?` (bind-placeholder confusion), `{}` and `%s`
+(format-token confusion, so a `str.format` / `%`-format fix that leaked a
+brace or token would be caught), the `NULL` keyword, a quote-free boolean
+expression (`5 > 3 OR 1=1`), and a `\r\n` CRLF (the list previously only
+had a bare `\n`). These are applied per parameter exactly as before, so
+the baseline demo run's deterministic counts moved together:
+**125 → 167 test cases, 92 → 129 identical, 33 → 38 breaking**
+(0 cosmetic throughout). Most of the new strings have no way to break out
+of a quoted context, so they land as *identical* — which is the point:
+they widen the "provably unchanged" evidence, not just the divergence
+count. `REPRODUCTION.md` §3 updated to the new numbers.
+
+Coverage added for source *shapes* the analyzer always handled but had no
+explicit test for: triple-quoted f-strings, implicitly-concatenated
+multi-line f-string parts (Python fuses them into one `JoinedStr`), and a
+risky `executemany()` call. Plus the two awkward run states: a scan that
+finds nothing (`0 finding(s)`, and the report shows "No risky SQL
+construction patterns were found" rather than an empty section or a
+crash) and a run-level caveat with no per-finding fix failure behind it.
+
+**Evidence:** +12 tests. `tests/test_queryexpr.py` (+2: triple-quoted,
+implicit concat), `tests/test_scanner.py` (+2: `executemany`,
+triple-quoted end to end), `tests/test_testgen.py` (new, 3: curated-list
+shape + no-dupes + a guaranteed-non-matching input verified `identical`
+with `[] == []`), `tests/test_report_generator.py` (new, 3: empty
+`RunReport` renders, run-level notes surface, the expectedness heuristic).
+Full suite: 72 passed.
+
 ---
 
 ## Main failure mode
