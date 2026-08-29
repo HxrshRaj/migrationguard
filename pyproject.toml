@@ -5,7 +5,7 @@ description = "A neutral, behavioral verifier for AI-migrated code: proves wheth
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
-authors = [{ name = "MigrationGuard authors", email = "hraj15709@gmail.com" }]
+authors = [{ name = "Harsh Raj", email = "hraj15709@gmail.com" }]
 keywords = ["sql-injection", "code-migration", "verification", "ast", "hypothesis", "static-analysis"]
 classifiers = [
     "Development Status :: 4 - Beta",
