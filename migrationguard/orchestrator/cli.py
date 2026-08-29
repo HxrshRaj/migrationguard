@@ -199,6 +199,14 @@ def scan(
         )
 
     notes: list[str] = []
+    llm_failures = list(getattr(llm, "failures", []) or [])
+    if llm_failures:
+        logger.info(f"{len(llm_failures)} LLM call(s) failed after retries: {llm_failures}")
+        notes.append(
+            f"{len(llm_failures)} LLM call(s) failed after retries and were "
+            f"degraded (canned explanation / no auto-fix / heuristic rationale "
+            f"in place of the model's): " + "; ".join(llm_failures)
+        )
     if unverified:
         notes.append(
             f"{len(unverified)} finding(s) outside the bundled demo app were "

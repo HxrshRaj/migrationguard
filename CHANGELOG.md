@@ -147,6 +147,41 @@ rate on file" rather than $0.00; malformed JSONL lines are skipped.
 environment this pass ran in. `REPRODUCTION.md` §4b now states exactly
 which command produces the real numbers and which fields to read.
 
+## 12. Retry / backoff and honest failure handling around real Claude calls
+
+Before: one `RateLimitError` or dropped connection during a real
+advanced-mode run raised straight out of `AnthropicLLMClient.complete()`
+and aborted the entire scan — after however many findings had already
+been processed and paid for. `trajectories.jsonl` would end mid-run with
+no indication why.
+
+Now `complete()` wraps the call in bounded exponential backoff with
+jitter (`max_attempts=5`, on top of the SDK's own retries), classifying
+each exception as *retry* (connection error, timeout, 408/409/429/5xx/529),
+*degrade* (a non-retryable 4xx like a malformed request), or *raise* (an
+auth / permission error — nothing downstream will work, so fail fast with
+`LLMCallError`). A call that exhausts its retries **degrades that one
+finding** instead of crashing: it records the reason in
+`client.failures`, writes a trajectory entry whose `response` is
+`<CALL FAILED after N attempt(s) -- ...>` (so the disclosure file shows
+the gap), and returns `""`. The existing call sites already handle an
+empty response — `scanner/explain.py` falls back to the canned
+explanation and confidence, `fixgen/advanced.py` reports the finding as
+not-auto-fixed, `verifier/rationale.py` falls back to the baseline
+heuristic — and the CLI adds a run-level note to the report's "What we're
+not confident about" section listing every degraded call.
+
+**Evidence:** `tests/test_llm_retry.py` — 5 tests with an injected fake
+transport (no network, no key): succeeds on the 3rd attempt after 2
+transient failures with exactly 2 backoff sleeps and a clean trajectory
+line; caps at `max_attempts` calls then returns `""` with the failure
+recorded and a `<CALL FAILED ...>` trajectory line; a non-retryable
+verdict degrades on the first attempt with zero sleeps; an auth verdict
+raises `LLMCallError` on the first attempt; and `_classify()` maps real
+`anthropic.APITimeoutError` / `RateLimitError` / `InternalServerError` /
+`BadRequestError` / `AuthenticationError` instances to
+retry / retry / retry / degrade / raise respectively.
+
 ---
 
 ## Main failure mode
