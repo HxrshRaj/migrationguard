@@ -1,0 +1,522 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>MigrationGuard Report — migrationguard/demo/legacy_app.py</title>
+<style>
+  :root{
+    --ink:#161b18; --ink-soft:#4b564f; --paper:#f5f6f3; --card:#ffffff;
+    --line:#d8ded7; --accent:#2f6f4f; --accent-soft:#e4efe7;
+    --warn:#b8542f; --warn-soft:#f5e6dc; --mono-bg:#161b18; --mono-fg:#e9ede9;
+  }
+  *{box-sizing:border-box;}
+  body{background:var(--paper); color:var(--ink); font:15px/1.55 -apple-system,Segoe UI,Roboto,sans-serif; margin:0; padding:36px 20px 90px;}
+  .wrap{max-width:960px; margin:0 auto;}
+  h1{font-size:26px; margin:0 0 4px;}
+  .sub{color:var(--ink-soft); font-size:14px; margin-bottom:28px;}
+  .grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:12px; margin-bottom:32px;}
+  .stat{background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px 16px;}
+  .stat .n{font-size:24px; font-weight:700; font-variant-numeric:tabular-nums;}
+  .stat .l{font-size:11px; letter-spacing:.05em; text-transform:uppercase; color:var(--ink-soft);}
+  .stat.breaking .n{color:var(--warn);}
+  .stat.identical .n{color:var(--accent);}
+  section{margin-bottom:34px;}
+  h2{font-size:18px; border-bottom:1px solid var(--line); padding-bottom:8px;}
+  .card{background:var(--card); border:1px solid var(--line); border-radius:10px; padding:16px 18px; margin-bottom:16px;}
+  .card h3{margin:0 0 4px; font-size:16px; font-family:monospace;}
+  .badge{display:inline-block; font-size:11px; font-weight:600; padding:2px 8px; border-radius:5px; margin-left:6px;}
+  .badge.ok{background:var(--accent-soft); color:var(--accent);}
+  .badge.fail{background:var(--warn-soft); color:var(--warn);}
+  .badge.pattern{background:var(--line); color:var(--ink-soft); font-family:monospace;}
+  pre{background:var(--mono-bg); color:var(--mono-fg); padding:10px 12px; border-radius:8px; overflow-x:auto; font-size:12.5px;}
+  table{width:100%; border-collapse:collapse; font-size:13px; margin-top:10px;}
+  th,td{text-align:left; padding:6px 8px; border-bottom:1px solid var(--line);}
+  th{font-size:10.5px; text-transform:uppercase; color:var(--ink-soft);}
+  .sev{font-weight:600;}
+  .sev.identical{color:var(--accent);}
+  .sev.breaking{color:var(--warn);}
+  .sev.cosmetic{color:#9a7a2a;}
+  .muted{color:var(--ink-soft); font-size:13px;}
+  .notconfident li{margin-bottom:6px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>MigrationGuard Verification Report</h1>
+  <div class="sub">migrationguard/demo/legacy_app.py · mode: advanced · generated 2026-08-29T18:28:09.983053+00:00</div>
+
+  <div class="grid">
+    <div class="stat"><div class="n">7</div><div class="l">Risky patterns found</div></div>
+    <div class="stat"><div class="n">7/7</div><div class="l">Auto-fixed</div></div>
+    <div class="stat"><div class="n">683</div><div class="l">Test cases run</div></div>
+    <div class="stat identical"><div class="n">473</div><div class="l">Identical behavior</div></div>
+    <div class="stat"><div class="n">0</div><div class="l">Cosmetic difference</div></div>
+    <div class="stat breaking"><div class="n">210</div><div class="l">Behavioral divergence</div></div>
+  </div>
+
+  <section>
+    <h2>What we're not confident about</h2>
+    
+    <p class="muted">Every finding was auto-fixed with confidence ≥ 0.70.</p>
+    
+  </section>
+
+  <section>
+    <h2>Findings</h2>
+    
+    
+    <div class="card">
+      <h3>find_user_by_name()
+        <span class="badge pattern">fstring</span>
+        
+        <span class="badge ok">fixed · template · conf 0.95</span>
+        
+      </h3>
+      <p class="muted">line 50 · scanner confidence 0.95</p>
+      <p>Using an f-string to insert the `name` argument directly into the SQL query allows an attacker to inject malicious SQL commands if they provide crafted input. Since `name` is passed as an unsanitized function parameter, this is a textbook SQL injection vulnerability that should be fixed using parameterized queries (e.g., `WHERE name = ?`).</p>
+      <pre>conn.execute(query)</pre>
+
+      
+        <p class="muted">Rewrote the fstring query to a parameterized call: 1 interpolated value(s) are now bound as separate parameters instead of spliced into the SQL text.</p>
+      
+
+      
+      
+      <table>
+        <tr><th>Total</th><th>Identical</th><th>Cosmetic</th><th>Breaking</th></tr>
+        <tr><td>86</td><td class="sev identical">68</td><td class="sev cosmetic">0</td><td class="sev breaking">18</td></tr>
+      </table>
+      
+      <p class="muted"><b>Smallest input that diverges:</b> <code>(&#34;&#39;&#34;,)</code></p>
+      
+      <table>
+        <tr><th>Input</th><th>Severity</th><th>Interpretation</th></tr>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+      </table>
+      
+    </div>
+    
+    <div class="card">
+      <h3>find_users_by_role()
+        <span class="badge pattern">percent_format</span>
+        
+        <span class="badge ok">fixed · template · conf 0.95</span>
+        
+      </h3>
+      <p class="muted">line 57 · scanner confidence 0.85</p>
+      <p>Interpolating the `role` argument directly into the SQL query string using `%s` allows an attacker to inject malicious SQL commands if they can control the `role` input.</p>
+      <pre>conn.execute(query)</pre>
+
+      
+        <p class="muted">Rewrote the percent_format query to a parameterized call: 1 interpolated value(s) are now bound as separate parameters instead of spliced into the SQL text.</p>
+      
+
+      
+      
+      <table>
+        <tr><th>Total</th><th>Identical</th><th>Cosmetic</th><th>Breaking</th></tr>
+        <tr><td>86</td><td class="sev identical">68</td><td class="sev cosmetic">0</td><td class="sev breaking">18</td></tr>
+      </table>
+      
+      <p class="muted"><b>Smallest input that diverges:</b> <code>(&#34;&#39;&#34;,)</code></p>
+      
+      <table>
+        <tr><th>Input</th><th>Severity</th><th>Interpretation</th></tr>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+      </table>
+      
+    </div>
+    
+    <div class="card">
+      <h3>search_users_by_email_domain()
+        <span class="badge pattern">concat</span>
+        
+        <span class="badge ok">fixed · llm · conf 0.80</span>
+        
+      </h3>
+      <p class="muted">line 64 · scanner confidence 0.90</p>
+      <p>The `domain` parameter is directly concatenated into the SQL query string, which allows an attacker to inject malicious SQL syntax (such as `&#39; OR 1=1 --`) and extract arbitrary user records.</p>
+      <pre>conn.execute(query)</pre>
+
+      
+        <p class="muted">LLM-rewritten to use parameterized queries; self-check confirmed the parameter list is unchanged before acceptance.</p>
+      
+
+      
+      
+      <table>
+        <tr><th>Total</th><th>Identical</th><th>Cosmetic</th><th>Breaking</th></tr>
+        <tr><td>86</td><td class="sev identical">68</td><td class="sev cosmetic">0</td><td class="sev breaking">18</td></tr>
+      </table>
+      
+      <p class="muted"><b>Smallest input that diverges:</b> <code>(&#34;&#39;&#34;,)</code></p>
+      
+      <table>
+        <tr><th>Input</th><th>Severity</th><th>Interpretation</th></tr>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+      </table>
+      
+    </div>
+    
+    <div class="card">
+      <h3>delete_user_by_name()
+        <span class="badge pattern">fstring</span>
+        
+        <span class="badge ok">fixed · template · conf 0.95</span>
+        
+      </h3>
+      <p class="muted">line 73 · scanner confidence 0.95</p>
+      <p>The f-string directly interpolates the `name` argument into a DELETE query, allowing an attacker to inject SQL (such as `&#39; OR &#39;1&#39;=&#39;1`) and delete arbitrary or all rows in the `users` table instead of just the intended one.</p>
+      <pre>conn.execute(query)</pre>
+
+      
+        <p class="muted">Rewrote the fstring query to a parameterized call: 1 interpolated value(s) are now bound as separate parameters instead of spliced into the SQL text.</p>
+      
+
+      
+      
+      <table>
+        <tr><th>Total</th><th>Identical</th><th>Cosmetic</th><th>Breaking</th></tr>
+        <tr><td>86</td><td class="sev identical">68</td><td class="sev cosmetic">0</td><td class="sev breaking">18</td></tr>
+      </table>
+      
+      <p class="muted"><b>Smallest input that diverges:</b> <code>(&#34;&#39;&#34;,)</code></p>
+      
+      <table>
+        <tr><th>Input</th><th>Severity</th><th>Interpretation</th></tr>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+      </table>
+      
+    </div>
+    
+    <div class="card">
+      <h3>update_user_role()
+        <span class="badge pattern">fstring</span>
+        
+        <span class="badge ok">fixed · template · conf 0.95</span>
+        
+      </h3>
+      <p class="muted">line 82 · scanner confidence 0.95</p>
+      <p>Using an f-string to directly insert the `new_role` and `name` arguments into the UPDATE statement makes this function highly vulnerable to SQL injection. An attacker could supply inputs containing single quotes to break out of the string and modify other users&#39; roles or execute malicious commands.</p>
+      <pre>conn.execute(query)</pre>
+
+      
+        <p class="muted">Rewrote the fstring query to a parameterized call: 2 interpolated value(s) are now bound as separate parameters instead of spliced into the SQL text.</p>
+      
+
+      
+      
+      <table>
+        <tr><th>Total</th><th>Identical</th><th>Cosmetic</th><th>Breaking</th></tr>
+        <tr><td>105</td><td class="sev identical">88</td><td class="sev cosmetic">0</td><td class="sev breaking">17</td></tr>
+      </table>
+      
+      <p class="muted"><b>Smallest input that diverges:</b> <code>(&#39;&#39;, &#34;&#39;&#34;)</code></p>
+      
+      <table>
+        <tr><th>Input</th><th>Severity</th><th>Interpretation</th></tr>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+      </table>
+      
+    </div>
+    
+    <div class="card">
+      <h3>get_user_by_id_unsafe()
+        <span class="badge pattern">concat</span>
+        
+        <span class="badge ok">fixed · template · conf 0.95</span>
+        
+      </h3>
+      <p class="muted">line 91 · scanner confidence 0.90</p>
+      <p>Concatenating `str(user_id)` directly into the query string creates an SQL injection risk because if `user_id` is passed as a malicious string (like `&#34;1 OR 1=1&#34;`) instead of an integer, it alters the executed query structure. Even though it looks like the function expects a number, `str()` does not sanitize or enforce numeric types on incoming string payloads.</p>
+      <pre>conn.execute(query)</pre>
+
+      
+        <p class="muted">Rewrote the concat query to a parameterized call: 1 interpolated value(s) are now bound as separate parameters instead of spliced into the SQL text.</p>
+      
+
+      
+      
+      <table>
+        <tr><th>Total</th><th>Identical</th><th>Cosmetic</th><th>Breaking</th></tr>
+        <tr><td>12</td><td class="sev identical">1</td><td class="sev cosmetic">0</td><td class="sev breaking">11</td></tr>
+      </table>
+      
+      <p class="muted"><b>Smallest input that diverges:</b> <code>(&#39;&#39;,)</code></p>
+      
+      <table>
+        <tr><th>Input</th><th>Severity</th><th>Interpretation</th></tr>
+        
+        
+        <tr>
+          <td><code>(&#39;&#39;,)</code></td>
+          <td class="sev breaking">breaking</td>
+          <td class="muted">This represents a possible regression because a benign empty string input that previously triggered an &#34;incomplete input&#34; SQL exception now executes successfully and returns an empty list, unexpectedly altering the function&#39;s error-handling behavior.</td>
+        </tr>
+        
+        
+        
+        <tr>
+          <td><code>(&#39;aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&#39;,)</code></td>
+          <td class="sev breaking">breaking</td>
+          <td class="muted">This looks like a possible regression on an input that should have stayed identical, as inappropriately parameterizing a structural SQL element like a column name causes the database to evaluate the input as a string literal, silently returning an empty list rather than raising an expected missing column error.</td>
+        </tr>
+        
+        
+        
+        
+        
+        <tr>
+          <td><code>(&#39;5 &gt; 3 OR 1=1&#39;,)</code></td>
+          <td class="sev breaking">breaking</td>
+          <td class="muted">This divergence shows the security fix correctly changing behavior on an adversarial SQL injection input by treating the payload as a literal string rather than executable code.</td>
+        </tr>
+        
+        
+        
+        <tr>
+          <td><code>(&#39;y&#39;,)</code></td>
+          <td class="sev breaking">breaking</td>
+          <td class="muted">This looks like a possible regression on an input that should have stayed identical, as the fix appears to have incorrectly parameterized a dynamic column name or identifier rather than a data value, fundamentally changing the query&#39;s structure and returning an empty list instead of evaluating the identifier.</td>
+        </tr>
+        
+        
+        
+        <tr>
+          <td><code>(&#39;/* block */&#39;,)</code></td>
+          <td class="sev breaking">breaking</td>
+          <td class="muted">This looks like the security fix correctly changing behavior on an adversarial input, as the SQL block comment payload is now safely treated as a literal string parameter rather than breaking the query syntax and causing an error.</td>
+        </tr>
+        
+        
+        
+        <tr>
+          <td><code>(&#39;under_score&#39;,)</code></td>
+          <td class="sev breaking">breaking</td>
+          <td class="muted">This looks like a possible regression on an input that should have stayed identical, as the fix incorrectly parameterized a structural SQL element (such as a column name), causing it to be evaluated as a string literal rather than a database identifier.</td>
+        </tr>
+        
+        
+        
+        <tr>
+          <td><code>(&#39;Müller&#39;,)</code></td>
+          <td class="sev breaking">breaking</td>
+          <td class="muted">This looks like a possible regression on a benign input that should have stayed identical, as the original code threw a syntax exception when misinterpreting the unquoted string &#39;Müller&#39; as a column name, whereas the fixed parameterized version now successfully executes and returns an empty list.</td>
+        </tr>
+        
+        
+        
+        <tr>
+          <td><code>(&#39;emoji 😀&#39;,)</code></td>
+          <td class="sev breaking">breaking</td>
+          <td class="muted">This looks like a possible regression on a benign input that should have stayed identical, as the fixed version returns an empty list instead of reproducing the syntax error that the original version threw when encountering the emoji.</td>
+        </tr>
+        
+        
+        
+        <tr>
+          <td><code>(&#39;ෟu\x8f̱Æ▣\u2427k፹Y\x8e´ªબ&#39;,)</code></td>
+          <td class="sev breaking">breaking</td>
+          <td class="muted">This appears to be the security fix correctly changing behavior on an adversarial input, as the query now safely evaluates the malformed string and returns an empty list instead of vulnerablely interpreting it as a column name and crashing.</td>
+        </tr>
+        
+        
+        
+        <tr>
+          <td><code>(&#39;&#39;,)</code></td>
+          <td class="sev breaking">breaking</td>
+          <td class="muted">This looks like a possible regression on an input that should have stayed identical, as passing an empty string now returns an empty list instead of throwing the expected exception.</td>
+        </tr>
+        
+        
+        
+        <tr>
+          <td><code>(&#39;&#39;,)</code></td>
+          <td class="sev breaking">breaking</td>
+          <td class="muted">This looks like a possible regression on a benign input that should have stayed identical, as the fixed version returns an empty list instead of preserving the original exception for an empty string.</td>
+        </tr>
+        
+        
+      </table>
+      
+    </div>
+    
+    <div class="card">
+      <h3>list_active_users_over_age()
+        <span class="badge pattern">untraceable</span>
+        
+        <span class="badge ok">fixed · llm · conf 0.80</span>
+        
+      </h3>
+      <p class="muted">line 104 · scanner confidence 0.95</p>
+      <p>The function builds an SQL query by directly interpolating the `min_age` and `role` arguments using f-strings across multiple lines, rather than using safe parameterized queries. Because `role` is a string, an attacker can pass a payload containing single quotes to alter the query logic and execute arbitrary SQL commands.</p>
+      <pre>conn.execute(query)</pre>
+
+      
+        <p class="muted">LLM-rewritten to use parameterized queries; self-check confirmed the parameter list is unchanged before acceptance.</p>
+      
+
+      
+      
+      <table>
+        <tr><th>Total</th><th>Identical</th><th>Cosmetic</th><th>Breaking</th></tr>
+        <tr><td>222</td><td class="sev identical">112</td><td class="sev cosmetic">0</td><td class="sev breaking">110</td></tr>
+      </table>
+      
+      <p class="muted"><b>Smallest input that diverges:</b> <code>(0, &#34;&#39;&#34;)</code></p>
+      
+      <table>
+        <tr><th>Input</th><th>Severity</th><th>Interpretation</th></tr>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+      </table>
+      
+    </div>
+    
+  </section>
+</div>
+</body>
+</html>

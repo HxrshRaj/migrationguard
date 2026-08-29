@@ -242,9 +242,13 @@ class LatentStackLLMClient:
                     model=self.model,
                     messages=[
                         {"role": "system", "content": system},
-                        {"role": "user", "content": prompt}
+                        {"role": "user", "content": prompt},
                     ],
-                    max_tokens=1536,
+                    # Headroom over the Anthropic client's 1536: gemini-3.1-pro
+                    # is a reasoning model and spends part of the budget on
+                    # internal reasoning tokens before emitting any content, so
+                    # a full-function fix rewrite needs more room.
+                    max_tokens=4096,
                 )
             except Exception as exc:  # noqa: BLE001
                 verdict = self._classify(exc)

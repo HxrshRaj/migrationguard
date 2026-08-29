@@ -97,7 +97,22 @@ LLM cost:    ~$0.0000 over N priced call(s) (XXXX in + YYYY out tokens)
 
 Baseline mode and `--fake-llm` make no billable calls, so this line does not appear for them — their output is unchanged from sections 3 and 4a.
 
-> **This submission's advanced-mode numbers have not yet been captured against a real key.** Every advanced-mode figure quoted in this repo currently comes from the `--fake-llm` dry run in 4a. To get real numbers: `export ANTHROPIC_API_KEY=sk-ant-...`, run the 4b command above, then read the `LLM cost:` line and `trajectories.jsonl` (`latency_ms`, `input_tokens`, `output_tokens`) for the true cost and wall-clock time. Ship that `trajectories.jsonl` as the agent-trajectory disclosure artifact.
+### Real advanced-mode run — actual numbers
+
+The advanced-mode figures in this repo were captured on **2026-08-29** with a real key, against the **LatentStack gateway** (`--provider latentstack`, model `gemini/gemini-3.1-pro`), `--max-examples 150 --seed 20260830`:
+
+| Metric | Value |
+|---|---|
+| Findings / auto-fixed | 7 / **7** (5 by the deterministic template, 2 by the LLM fixer) |
+| Verification cases | 683 total → **473 identical / 0 cosmetic / 210 breaking** |
+| Disclosed LLM calls | **39** — 7 `scanner.explain` + 2 `fixgen.rewrite` + 30 `diffengine.rationale`; **0 failed / degraded** |
+| Tokens | 8,292 input + 29,894 output |
+| Estimated cost | **~$0.31** — token counts are exact; the dollar figure uses a *placeholder* rate ($1.25 in / $10.00 out per MTok) in `migrationguard/cost.py`, pending LatentStack's published gateway pricing |
+| Wall-clock | **~7 min 9 s** (Gemini 3.1 Pro is a reasoning model — 4.5 s min / 10.6 s mean / 19.5 s max per call) |
+
+The full disclosed trajectory log for that run ships at `artifacts/trajectories-latentstack.jsonl` (39 lines, every entry `"model": "gemini/gemini-3.1-pro"`); the rendered report is `artifacts/report-advanced-latentstack.html`.
+
+To reproduce against Anthropic instead, drop `--provider latentstack` and export `ANTHROPIC_API_KEY` — the counts shift slightly run to run because the model's fix and rationale wording varies, but the shape (7/7 fixed, most cases identical, breaking cases concentrated on adversarial input) holds.
 
 `--seed` fixes Hypothesis's random source, so the *set of test inputs* generated is reproducible across runs even though the exact identical/breaking counts can shift slightly run to run if the model's fix wording changes.
 

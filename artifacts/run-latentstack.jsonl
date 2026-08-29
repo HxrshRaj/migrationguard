@@ -1,0 +1,21 @@
+{"time": "2026-08-29T18:21:03.088012+00:00", "level": "INFO", "logger": "migrationguard", "message": "starting scan mode=advanced out_dir=out\\advanced path=migrationguard/demo/legacy_app.py files=1"}
+{"time": "2026-08-29T18:21:03.104105+00:00", "level": "INFO", "logger": "migrationguard", "message": "scanner found 7 risky pattern(s) across 1 file(s)"}
+{"time": "2026-08-29T18:22:25.460056+00:00", "level": "INFO", "logger": "migrationguard", "message": "advanced-mode explanations generated for every finding"}
+{"time": "2026-08-29T18:22:25.464055+00:00", "level": "INFO", "logger": "migrationguard", "message": "find_user_by_name: fix succeeded via template"}
+{"time": "2026-08-29T18:23:08.869892+00:00", "level": "INFO", "logger": "migrationguard", "message": "find_user_by_name: verified 86 case(s) -- 68 identical, 0 cosmetic, 18 breaking"}
+{"time": "2026-08-29T18:23:08.875954+00:00", "level": "INFO", "logger": "migrationguard", "message": "find_users_by_role: fix succeeded via template"}
+{"time": "2026-08-29T18:23:41.621576+00:00", "level": "INFO", "logger": "migrationguard", "message": "find_users_by_role: verified 86 case(s) -- 68 identical, 0 cosmetic, 18 breaking"}
+{"time": "2026-08-29T18:23:41.624577+00:00", "level": "INFO", "logger": "migrationguard", "message": "search_users_by_email_domain: baseline template couldn't fix it (a SQL string-literal quote sits on only one side of an interpolated value (for example, a LIKE wildcard baked into the query text: `'%' + value`), so stripping the quote to bind a clean parameter isn't safe to do mechanically -- this needs the advanced (LLM) fixer, which can restructure the query (e.g. bind the wildcard into the parameter value itself: `LIKE ?` with param `f'%{value}'`).) -- escalating to the LLM fixer"}
+{"time": "2026-08-29T18:23:50.327344+00:00", "level": "INFO", "logger": "migrationguard", "message": "search_users_by_email_domain: fix succeeded via llm"}
+{"time": "2026-08-29T18:24:34.458826+00:00", "level": "INFO", "logger": "migrationguard", "message": "search_users_by_email_domain: verified 86 case(s) -- 68 identical, 0 cosmetic, 18 breaking"}
+{"time": "2026-08-29T18:24:34.462733+00:00", "level": "INFO", "logger": "migrationguard", "message": "delete_user_by_name: fix succeeded via template"}
+{"time": "2026-08-29T18:25:15.200994+00:00", "level": "INFO", "logger": "migrationguard", "message": "delete_user_by_name: verified 86 case(s) -- 68 identical, 0 cosmetic, 18 breaking"}
+{"time": "2026-08-29T18:25:15.204981+00:00", "level": "INFO", "logger": "migrationguard", "message": "update_user_role: fix succeeded via template"}
+{"time": "2026-08-29T18:25:34.567753+00:00", "level": "INFO", "logger": "migrationguard", "message": "update_user_role: verified 105 case(s) -- 88 identical, 0 cosmetic, 17 breaking"}
+{"time": "2026-08-29T18:25:34.571737+00:00", "level": "INFO", "logger": "migrationguard", "message": "get_user_by_id_unsafe: fix succeeded via template"}
+{"time": "2026-08-29T18:27:51.158208+00:00", "level": "INFO", "logger": "migrationguard", "message": "get_user_by_id_unsafe: verified 12 case(s) -- 1 identical, 0 cosmetic, 11 breaking"}
+{"time": "2026-08-29T18:27:51.161196+00:00", "level": "INFO", "logger": "migrationguard", "message": "list_active_users_over_age: baseline template couldn't fix it (the query is built across more than one assignment (or reassigned) before it reaches execute(); a template rewrite can't safely reconstruct it -- this needs the advanced (LLM) fixer, which reads the whole function instead of one expression.) -- escalating to the LLM fixer"}
+{"time": "2026-08-29T18:28:03.862484+00:00", "level": "INFO", "logger": "migrationguard", "message": "list_active_users_over_age: fix succeeded via llm"}
+{"time": "2026-08-29T18:28:09.983053+00:00", "level": "INFO", "logger": "migrationguard", "message": "list_active_users_over_age: verified 222 case(s) -- 112 identical, 0 cosmetic, 110 breaking"}
+{"time": "2026-08-29T18:28:10.022373+00:00", "level": "INFO", "logger": "migrationguard", "message": "wrote out\\advanced\\report.html"}
+{"time": "2026-08-29T18:28:10.072048+00:00", "level": "INFO", "logger": "migrationguard", "message": "llm cost estimate: 39 priced call(s), 8292+29894 tok, ~$0.3093"}
