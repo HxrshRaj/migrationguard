@@ -6,12 +6,14 @@ LLM call made, if any -- empty in baseline mode).
 from __future__ import annotations
 
 import ast
+import os
 import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
 
 import click
 
+from migrationguard.cost import estimate_run_cost, format_cost_summary
 from migrationguard.demo import legacy_app
 from migrationguard.fixgen import advanced as fixgen_advanced
 from migrationguard.fixgen import baseline as fixgen_baseline
@@ -26,6 +28,12 @@ from migrationguard.verifier.rationale import annotate as annotate_rationale
 from migrationguard.verifier.runner import verify_advanced, verify_baseline
 
 DEMO_FILE = "migrationguard/demo/legacy_app.py"
+_DEMO_FILE_ABS = Path(legacy_app.__file__).resolve()
+
+_SKIP_DIRS = {
+    "__pycache__", ".git", ".venv", "venv", "env", ".mypy_cache",
+    ".pytest_cache", ".hypothesis", "build", "dist", ".tox", "node_modules",
+}
 
 
 @click.group()
@@ -43,6 +51,15 @@ def main() -> None:
     type=click.Choice(["baseline", "advanced"]),
     default="baseline",
     show_default=True,
+)
+@click.option(
+    "--path",
+    "scan_path",
+    type=click.Path(exists=True, path_type=Path),
+    default=None,
+    help="File or directory to scan. Default: the bundled demo app. A "
+    "directory is walked recursively for .py files; behavioral "
+    "verification only runs for the bundled demo (see README).",
 )
 @click.option(
     "--out-dir", type=click.Path(path_type=Path), default=Path("out"), show_default=True
@@ -67,19 +84,51 @@ def main() -> None:
     help="Use a deterministic fake LLM client instead of calling Claude "
     "(advanced mode only) -- for a dry run with no ANTHROPIC_API_KEY set.",
 )
-def scan(mode: str, out_dir: Path, max_examples: int, seed: int, fake_llm: bool) -> None:
-    """Scan the bundled demo app, fix what it can, verify every fix."""
+def scan(
+    mode: str,
+    scan_path: Path | None,
+    out_dir: Path,
+    max_examples: int,
+    seed: int,
+    fake_llm: bool,
+) -> None:
+    """Scan code for risky SQL construction, fix what it can, verify every fix."""
     mode_enum = Mode(mode)
     out_dir.mkdir(parents=True, exist_ok=True)
     logger = configure_logging(out_dir / "run.jsonl")
     trajectory_log = TrajectoryLog(out_dir / "trajectories.jsonl")
     trajectory_log.path.write_text("", encoding="utf-8")  # start this run's log fresh
 
-    logger.info(f"starting scan mode={mode} out_dir={out_dir}")
+    files = _resolve_files(scan_path)
+    scan_label = DEMO_FILE if scan_path is None else str(scan_path)
+    logger.info(
+        f"starting scan mode={mode} out_dir={out_dir} "
+        f"path={scan_label} files={len(files)}"
+    )
 
-    source = Path(legacy_app.__file__).read_text(encoding="utf-8")
-    findings = scan_source(source, DEMO_FILE)
-    logger.info(f"scanner found {len(findings)} risky pattern(s)")
+    disambiguate = len(files) > 1
+    all_findings = []
+    source_by_file: dict[str, str] = {}
+    for file_path in files:
+        display = _display_path(file_path)
+        try:
+            source = file_path.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError) as exc:  # unreadable file: log and skip
+            logger.info(f"skipped {display}: {exc}")
+            continue
+        try:
+            file_findings = scan_source(source, display)
+        except SyntaxError as exc:  # not valid Python 3: log and skip
+            logger.info(f"skipped {display}: syntax error ({exc})")
+            continue
+        source_by_file[display] = source
+        for finding in file_findings:
+            if disambiguate:
+                finding = finding.model_copy(update={"id": f"{display}::{finding.id}"})
+            all_findings.append(finding)
+
+    findings = all_findings
+    logger.info(f"scanner found {len(findings)} risky pattern(s) across {len(source_by_file)} file(s)")
 
     llm = None
     if mode_enum == Mode.ADVANCED:
@@ -89,15 +138,19 @@ def scan(mode: str, out_dir: Path, max_examples: int, seed: int, fake_llm: bool)
             else AnthropicLLMClient(trajectory_log)
         )
         findings = [
-            scanner_explain.explain(f, _function_source(source, f.function), llm)
+            scanner_explain.explain(
+                f, _function_source(source_by_file[f.file], f.function), llm
+            )
             for f in findings
         ]
         logger.info("advanced-mode explanations generated for every finding")
 
     fixes: dict[str, FixCandidate] = {}
     verifications: dict[str, VerificationResult] = {}
+    unverified: list[str] = []
 
     for finding in findings:
+        source = source_by_file[finding.file]
         fix = fixgen_baseline.generate_fix(source, finding)
         if mode_enum == Mode.ADVANCED and not fix.success:
             logger.info(
@@ -112,6 +165,19 @@ def scan(mode: str, out_dir: Path, max_examples: int, seed: int, fake_llm: bool)
         )
 
         if not fix.success:
+            continue
+
+        if not _is_demo_finding(finding):
+            # Scan + fix generalise to any file; behavioural verification
+            # needs a way to *exercise* the code (a seeded DB with a
+            # matching schema), which the bundled fixtures only provide
+            # for the demo app. Report the proposed fix, don't pretend
+            # it was proven.
+            unverified.append(f"{finding.function} ({finding.file})")
+            logger.info(
+                f"{finding.function}: fix generated but not verified "
+                f"(no bundled fixtures for {finding.file})"
+            )
             continue
 
         original_func = getattr(legacy_app, finding.function)
@@ -132,26 +198,85 @@ def scan(mode: str, out_dir: Path, max_examples: int, seed: int, fake_llm: bool)
             f"{result.breaking} breaking"
         )
 
+    notes: list[str] = []
+    if unverified:
+        notes.append(
+            f"{len(unverified)} finding(s) outside the bundled demo app were "
+            f"scanned and fix-generated but not behaviourally verified -- "
+            f"MigrationGuard's harness runs against bundled fixtures and has "
+            f"no seeded database for these files: " + ", ".join(sorted(unverified))
+        )
+
     report = RunReport(
         mode=mode_enum,
-        file=DEMO_FILE,
+        file=scan_label,
         generated_at=datetime.now(timezone.utc).isoformat(),
         findings=findings,
         fixes=fixes,
         verifications=verifications,
+        notes=notes,
     )
 
     (out_dir / "run_report.json").write_text(report.model_dump_json(indent=2), encoding="utf-8")
     render_report(report, out_dir / "report.html")
     logger.info(f"wrote {out_dir / 'report.html'}")
 
+    cost = estimate_run_cost(trajectory_log.path)
+    if cost.is_billable:
+        logger.info(
+            f"llm cost estimate: {cost.priced_calls} priced call(s), "
+            f"{cost.input_tokens}+{cost.output_tokens} tok, ~${cost.usd:.4f}"
+        )
+
     fixed_count = sum(1 for f in fixes.values() if f.success)
-    click.echo(
-        f"Scanned {DEMO_FILE}: {len(findings)} finding(s), {fixed_count} auto-fixed.\n"
-        f"Report:      {out_dir / 'report.html'}\n"
-        f"Run log:     {out_dir / 'run.jsonl'}\n"
-        f"Trajectories:{out_dir / 'trajectories.jsonl'}"
-    )
+    if scan_path is None:
+        scanned_line = f"Scanned {DEMO_FILE}: {len(findings)} finding(s), {fixed_count} auto-fixed."
+    else:
+        scanned_line = (
+            f"Scanned {len(source_by_file)} file(s) under {scan_label}: "
+            f"{len(findings)} finding(s), {fixed_count} auto-fixed."
+        )
+    lines = [
+        scanned_line,
+        f"Report:      {out_dir / 'report.html'}",
+        f"Run log:     {out_dir / 'run.jsonl'}",
+        f"Trajectories:{out_dir / 'trajectories.jsonl'}",
+    ]
+    if cost.is_billable:
+        lines.append(format_cost_summary(cost))
+    click.echo("\n".join(lines))
+
+
+def _resolve_files(scan_path: Path | None) -> list[Path]:
+    """The list of .py files a run should scan, in a stable order."""
+    if scan_path is None:
+        return [_DEMO_FILE_ABS]
+    if scan_path.is_file():
+        return [scan_path]
+    out: list[Path] = []
+    for p in sorted(scan_path.rglob("*.py")):
+        if any(part in _SKIP_DIRS for part in p.parts):
+            continue
+        out.append(p)
+    return out
+
+
+def _display_path(file_path: Path) -> str:
+    """A short, stable label for a scanned file. The bundled demo always
+    renders as its canonical repo-relative path so existing docs stay
+    exact; anything else is shown relative to the current directory when
+    possible, else as an absolute path."""
+    resolved = file_path.resolve()
+    if resolved == _DEMO_FILE_ABS:
+        return DEMO_FILE
+    try:
+        return os.path.relpath(resolved, Path.cwd()).replace(os.sep, "/")
+    except ValueError:  # different drive on Windows
+        return str(resolved)
+
+
+def _is_demo_finding(finding) -> bool:
+    return finding.file == DEMO_FILE
 
 
 def _function_source(source: str, name: str) -> str:

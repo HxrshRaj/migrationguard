@@ -34,12 +34,15 @@ def render_report(report: RunReport, out_path: Path) -> None:
         f for f in report.findings if report.fixes.get(f.id, None) is None or report.fixes[f.id].confidence < 0.7
     ]
     unfixed = [f for f in report.findings if not report.fixes.get(f.id) or not report.fixes[f.id].success]
+    files_scanned = sorted({f.file for f in report.findings})
 
     html = template.render(
         report=report,
         summary=summary,
         low_confidence=low_confidence,
         unfixed=unfixed,
+        files_scanned=files_scanned,
+        multi_file=len(files_scanned) > 1,
         Severity=Severity,
     )
     out_path.parent.mkdir(parents=True, exist_ok=True)
@@ -108,7 +111,7 @@ _TEMPLATE = r"""<!doctype html>
 <body>
 <div class="wrap">
   <h1>MigrationGuard Verification Report</h1>
-  <div class="sub">{{ report.file }} · mode: {{ report.mode.value }} · generated {{ report.generated_at }}</div>
+  <div class="sub">{{ report.file }}{% if multi_file %} · {{ files_scanned|length }} files with findings{% endif %} · mode: {{ report.mode.value }} · generated {{ report.generated_at }}</div>
 
   <div class="grid">
     <div class="stat"><div class="n">{{ summary.total_findings }}</div><div class="l">Risky patterns found</div></div>
@@ -121,8 +124,11 @@ _TEMPLATE = r"""<!doctype html>
 
   <section>
     <h2>What we're not confident about</h2>
-    {% if unfixed or low_confidence %}
+    {% if unfixed or low_confidence or report.notes %}
     <ul class="notconfident">
+      {% for note in report.notes %}
+      <li>{{ note }}</li>
+      {% endfor %}
       {% for f in unfixed %}
       <li><b>{{ f.function }}</b> — no automated fix generated ({{ report.fixes.get(f.id).failure_reason if report.fixes.get(f.id) else "not attempted" }})</li>
       {% endfor %}
@@ -132,13 +138,18 @@ _TEMPLATE = r"""<!doctype html>
       {% endif %}
       {% endfor %}
     </ul>
-    {% else %}
+    {% elif report.findings %}
     <p class="muted">Every finding was auto-fixed with confidence ≥ 0.70.</p>
+    {% else %}
+    <p class="muted">Nothing to report — the scan found no risky patterns.</p>
     {% endif %}
   </section>
 
   <section>
     <h2>Findings</h2>
+    {% if not report.findings %}
+    <p class="muted">No risky SQL construction patterns were found in the scanned code.</p>
+    {% endif %}
     {% for f in report.findings %}
     <div class="card">
       <h3>{{ f.function }}()
@@ -147,7 +158,7 @@ _TEMPLATE = r"""<!doctype html>
         {% if fix and fix.success %}<span class="badge ok">fixed · {{ fix.strategy }} · conf {{ "%.2f"|format(fix.confidence) }}</span>
         {% else %}<span class="badge fail">not auto-fixed</span>{% endif %}
       </h3>
-      <p class="muted">line {{ f.line }} · scanner confidence {{ "%.2f"|format(f.confidence) }}</p>
+      <p class="muted">{% if multi_file %}{{ f.file }} · {% endif %}line {{ f.line }} · scanner confidence {{ "%.2f"|format(f.confidence) }}</p>
       <p>{{ f.risk_explanation }}</p>
       <pre>{{ f.code_snippet }}</pre>
 

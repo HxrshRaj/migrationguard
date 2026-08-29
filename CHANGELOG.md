@@ -86,6 +86,67 @@ above) accurate as-written. The tradeoff is that `--mode advanced` on the
 demo app doesn't exercise `str.format()` end to end; the analyzer and the
 fixer are exercised directly instead.
 
+## 10. `--path`: scan any file or directory, not just the bundled demo
+
+The CLI hard-coded `migrationguard/demo/legacy_app.py`. It now takes
+`--path` (a file or a directory walked recursively for `.py` files, with
+`__pycache__` / `.venv` / `build` / etc. skipped). Findings, fixes, and
+verifications from every file aggregate into one `RunReport` and one
+`report.html`. Finding ids are disambiguated by file path when more than
+one file is scanned, so two files with a `lookup()` at the same line
+don't collide. Unreadable and non-Python-3 files are logged and skipped
+rather than aborting the run.
+
+Behavioral verification still only runs for the bundled demo. This is a
+real limitation, not an oversight: `verifier/harness.py` seeds an
+in-memory SQLite database from `demo/fixtures.py`, so it can only
+*exercise* functions that expect that exact schema. For findings outside
+the demo, the report shows the finding and the proposed fix and states
+plainly, in "What we're not confident about", that it was not verified
+("N finding(s) outside the bundled demo app were scanned and
+fix-generated but not behaviourally verified"). Verifying arbitrary code
+needs a per-project fixtures provider — a clear next design step, out of
+scope here.
+
+**Evidence:** `tests/test_cli_path.py` — 6 tests via `click.testing.CliRunner`:
+the no-`--path` default still prints the exact
+`Scanned migrationguard/demo/legacy_app.py: 7 finding(s), 5 auto-fixed.`
+line REPRODUCTION.md documents; a two-file directory aggregates to 2
+findings with an empty `verifications` map and the unverified note
+present; same-name/same-line functions in two files get distinct
+`file::id` keys; a directory whose only file is already-parameterised
+produces `0 finding(s)` and a report containing "No risky SQL
+construction patterns were found"; a syntactically broken file alongside
+a good one is skipped, not fatal.
+
+## 11. Real per-run LLM cost estimate
+
+`trajectories.jsonl` already recorded `input_tokens` / `output_tokens`
+per call; nothing added them up. `migrationguard/cost.py` now totals them
+and multiplies by a published per-million-token rate (a hand-entered
+constant, `PRICES`, sourced from Anthropic's pricing page and dated in
+the module docstring — the one thing here that can silently go stale).
+The CLI's final line gains an `LLM cost: ~$X over N priced call(s) (…
+tokens)` summary for real advanced-mode runs; `run.jsonl` gets the same
+as a structured record. Unknown models are surfaced ("no rate on file
+for …") instead of being silently priced at zero.
+
+Baseline mode and `--fake-llm` make no billable calls, so `cost.is_billable`
+is false for them and the CLI output is byte-for-byte unchanged — the
+`--fake-llm` client is counted but explicitly free.
+
+**Evidence:** `tests/test_cost.py` — 5 tests: a missing/empty file is
+zero cost and not billable; `fake-llm-client` entries are counted but
+never billable (so 4a's output stays identical); a hand-computed
+1M-input + 0.5M-output total matches `usd` exactly against the rate in
+`PRICES`; an unrecognised model lands in `unpriced_models` and shows "no
+rate on file" rather than $0.00; malformed JSONL lines are skipped.
+
+**The advanced-mode cost/latency numbers in this repo are still from the
+`--fake-llm` dry run** — no `ANTHROPIC_API_KEY` was available in the
+environment this pass ran in. `REPRODUCTION.md` §4b now states exactly
+which command produces the real numbers and which fields to read.
+
 ---
 
 ## Main failure mode

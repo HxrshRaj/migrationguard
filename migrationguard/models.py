@@ -111,11 +111,12 @@ class RunReport(BaseModel):
     run.jsonl."""
 
     mode: Mode
-    file: str
+    file: str  # the --path argument as given (a file or a directory), or the demo file
     generated_at: str
     findings: list[RiskFinding] = Field(default_factory=list)
     fixes: dict[str, FixCandidate] = Field(default_factory=dict)  # keyed by finding_id
     verifications: dict[str, VerificationResult] = Field(default_factory=dict)  # keyed by finding_id
+    notes: list[str] = Field(default_factory=list)  # run-level caveats surfaced in the report
 
 
 class LLMTrajectory(BaseModel):

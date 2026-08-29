@@ -37,8 +37,16 @@ pip install -e ".[dev]"
 migrationguard scan --mode baseline
 migrationguard scan --mode advanced --fake-llm   # no API key needed, exercises the full pipeline
 migrationguard scan --mode advanced              # real Claude calls; needs ANTHROPIC_API_KEY
+migrationguard scan --path path/to/your/code     # scan a file or directory instead of the bundled demo
 open out/baseline/report.html                    # or out/advanced/report.html
 ```
+
+`--path` defaults to the bundled demo app, so every command above and
+every number in `REPRODUCTION.md` is unchanged when it's omitted. Pointed
+at your own code, the scanner and fix generator run over every `.py` file;
+behavioral verification still only runs for the demo (it needs a seeded
+database with a matching schema to exercise the code — see "What we're not
+confident about").
 
 See `REPRODUCTION.md` for exact commands, expected output, and versions.
 
@@ -64,7 +72,7 @@ Five modules, each independently testable:
 - **`fixgen/`** — `baseline.py` (deterministic rewrite) and `advanced.py` (LLM rewrite with a self-check on the parameter list), behind one interface.
 - **`verifier/`** — the part that most needs to be trustworthy, so it's the most heavily tested. `harness.py` runs original vs. fixed against fresh, isolated in-memory SQLite databases; `diffengine.py` is pure and deterministic (see the note above on why); `testgen.py` builds the input battery for both modes.
 - **`report/`** — renders a single self-contained HTML file, no CDN dependency, so it opens correctly offline.
-- **`orchestrator/`** — the CLI, and the only place that writes `run.jsonl` (structured logs) and `trajectories.jsonl` (every LLM call, disclosed).
+- **`orchestrator/`** — the CLI (`--path` for scanning arbitrary files/directories, `--mode`, `--fake-llm`, `--max-examples`, `--seed`), and the only place that writes `run.jsonl` (structured logs) and `trajectories.jsonl` (every LLM call, disclosed). Prints an estimated LLM cost for real advanced-mode runs, derived from the token counts in `trajectories.jsonl` (`cost.py`).
 
 ## What we're not confident about
 
@@ -73,6 +81,8 @@ Five modules, each independently testable:
 - `search_users_by_email_domain`'s LLM-generated fix moves the `%` wildcard into the bound parameter (`LIKE ?` with `f"%{domain}"`); this is the standard, correct pattern, but it does mean the fixed function's exact query string differs from a hand-written parameterization someone might have expected.
 - Advanced-mode numbers throughout the reproduction guide were captured with a real `ANTHROPIC_API_KEY`. If the key isn't set at review time, `--fake-llm` reproduces the full pipeline shape but not real model output.
 - `str.format()` detection and template-fixing (added in the post-submission pass — see `CHANGELOG.md` entry 9) is covered by 14 unit tests but is not exercised by the bundled demo app, which is deliberately frozen at 7 findings so its documented numbers stay exact.
+- `--path` generalizes *scanning and fix generation* to any file or directory, but *behavioral verification* still only runs for the bundled demo: the harness seeds an in-memory SQLite database from a fixed fixture (`demo/fixtures.py`), so it can only exercise functions that expect that schema. Verifying arbitrary code would need a per-project fixtures provider — a real design direction, out of scope for this submission. Findings outside the demo are scanned, fix-generated, and reported, with the missing verification called out explicitly in the report.
+- The LLM cost figure is an estimate: exact recorded token counts × a per-model rate hand-entered in `cost.py` from Anthropic's public pricing (checked 2026-08-29). If the published rates change, that constant is what goes stale — the token counts in `trajectories.jsonl` stay exact.
 
 ## Agent trajectories
 

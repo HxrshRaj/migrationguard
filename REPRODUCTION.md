@@ -76,9 +76,27 @@ export ANTHROPIC_API_KEY=sk-ant-...
 migrationguard scan --mode advanced --out-dir out/advanced --max-examples 150 --seed 20260830
 ```
 
-Same as 4a, but every `trajectories.jsonl` entry is a real disclosed Claude call (explanation generation for all 7 findings, fix generation for the 2 escalated ones, and a severity rationale for every non-identical case). **Runtime: roughly proportional to (7 explanation calls + up to 2 fix calls + one rationale call per non-identical case) × real API latency** — budget a few minutes for the full demo app, and check `trajectories.jsonl`'s `latency_ms` / `input_tokens` / `output_tokens` fields afterward for the exact cost and time actually spent.
+Same as 4a, but every `trajectories.jsonl` entry is a real disclosed Claude call (explanation generation for all 7 findings, fix generation for the 2 escalated ones, and a severity rationale for every non-identical case). **Runtime: roughly proportional to (7 explanation calls + up to 2 fix calls + one rationale call per non-identical case) × real API latency** — budget a few minutes for the full demo app.
+
+The run's final line prints an **estimated LLM cost** — the exact input/output token counts recorded in `trajectories.jsonl`, multiplied by the published per-million-token rate for `claude-sonnet-4-5-20250929` ($3 in / $15 out, hand-entered in `migrationguard/cost.py`). It looks like:
+
+```
+LLM cost:    ~$0.0000 over N priced call(s) (XXXX in + YYYY out tokens)
+```
+
+Baseline mode and `--fake-llm` make no billable calls, so this line does not appear for them — their output is unchanged from sections 3 and 4a.
+
+> **This submission's advanced-mode numbers have not yet been captured against a real key.** Every advanced-mode figure quoted in this repo currently comes from the `--fake-llm` dry run in 4a. To get real numbers: `export ANTHROPIC_API_KEY=sk-ant-...`, run the 4b command above, then read the `LLM cost:` line and `trajectories.jsonl` (`latency_ms`, `input_tokens`, `output_tokens`) for the true cost and wall-clock time. Ship that `trajectories.jsonl` as the agent-trajectory disclosure artifact.
 
 `--seed` fixes Hypothesis's random source, so the *set of test inputs* generated is reproducible across runs even though the exact identical/breaking counts can shift slightly run to run if the model's fix wording changes.
+
+## 4c. Scanning code other than the bundled demo
+
+```bash
+migrationguard scan --mode baseline --path path/to/your/code --out-dir out/mycode
+```
+
+`--path` takes a file or a directory (walked recursively for `.py` files; `__pycache__`, `.venv`, `build`, etc. are skipped). Findings and proposed fixes from every file are aggregated into one `report.html`. Behavioral verification only runs for the bundled demo app — for any other file the report shows the finding and the proposed fix with the missing verification stated explicitly in "What we're not confident about". A scan that finds nothing still writes a valid (empty) report.
 
 ## 5. What to look at
 
