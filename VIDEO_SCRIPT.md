@@ -9,7 +9,7 @@ copy-paste exact. Budget: 0:45 / 1:35 / 1:35 / 0:45 with ~20s slack.
 ```bash
 python -m venv .venv && .venv\Scripts\activate     # macOS/Linux: source .venv/bin/activate
 pip install -e ".[dev]"
-pytest -q                                          # expect: 87 passed
+pytest -q                                          # expect: 88 passed
 rm -rf out/                                        # so the baseline run is live on camera
 ```
 

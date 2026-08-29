@@ -43,10 +43,10 @@ pytest -q
 
 ```
 ........................................................................ [100%]
-79 passed
+88 passed
 ```
 
-Runtime is a few seconds on Linux; on a cold Windows checkout it's ~1–2 minutes (process-spawn overhead plus Hypothesis's shrink phase — not a problem, just slower). If any test fails, nothing downstream should be trusted — this is the step the whole project's credibility rests on. See `CHANGELOG.md` for what these tests were built to catch (the original 32, plus the post-submission additions in entries 9–16).
+Runtime is a few seconds on Linux; on a cold Windows checkout it's ~1–2 minutes (process-spawn overhead plus Hypothesis's shrink phase — not a problem, just slower). If any test fails, nothing downstream should be trusted — this is the step the whole project's credibility rests on. See `CHANGELOG.md` for what these tests were built to catch (the original 32, plus the post-submission additions in entries 9–19).
 
 ## 3. Baseline run (no API key, no network)
 
