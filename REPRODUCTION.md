@@ -75,16 +75,21 @@ Exercises the full pipeline shape — including the LLM-escalation path for the 
 
 **Expected:** 7 findings, **7/7 auto-fixed** (the 2 escalated ones now succeed via the fake LLM), `out/advanced-dryrun/trajectories.jsonl` populated with entries tagged `"model": "fake-llm-client"`. **Runtime: a few seconds** (Hypothesis's shrink phase dominates; not model latency).
 
-## 4b. Advanced run — real Claude calls
+## 4b. Advanced run — real model calls
 
 ```bash
+# To run against Anthropic Claude 4.5 Sonnet (the default):
 export ANTHROPIC_API_KEY=sk-ant-...
 migrationguard scan --mode advanced --out-dir out/advanced --max-examples 150 --seed 20260830
+
+# Or, to run against LatentStack's OpenAI-compatible gateway (Gemini 3.1 Pro):
+export LATENTSTACK_API_KEY=ls-...
+migrationguard scan --mode advanced --provider latentstack --out-dir out/advanced-ls --max-examples 150 --seed 20260830
 ```
 
-Same as 4a, but every `trajectories.jsonl` entry is a real disclosed Claude call (explanation generation for all 7 findings, fix generation for the 2 escalated ones, and a severity rationale for every non-identical case). **Runtime: roughly proportional to (7 explanation calls + up to 2 fix calls + one rationale call per non-identical case) × real API latency** — budget a few minutes for the full demo app.
+Same as 4a, but every `trajectories.jsonl` entry is a real disclosed LLM call (explanation generation for all 7 findings, fix generation for the 2 escalated ones, and a severity rationale for every non-identical case). **Runtime: roughly proportional to (7 explanation calls + up to 2 fix calls + one rationale call per non-identical case) × real API latency** — budget a few minutes for the full demo app.
 
-The run's final line prints an **estimated LLM cost** — the exact input/output token counts recorded in `trajectories.jsonl`, multiplied by the published per-million-token rate for `claude-sonnet-4-5-20250929` ($3 in / $15 out, hand-entered in `migrationguard/cost.py`). It looks like:
+The run's final line prints an **estimated LLM cost** — the exact input/output token counts recorded in `trajectories.jsonl`, multiplied by the published per-million-token rate for `claude-sonnet-4-5-20250929` ($3 in / $15 out) or `gemini/gemini-3.1-pro` ($1.25 in / $10.00 out), hand-entered in `migrationguard/cost.py`. It looks like:
 
 ```
 LLM cost:    ~$0.0000 over N priced call(s) (XXXX in + YYYY out tokens)

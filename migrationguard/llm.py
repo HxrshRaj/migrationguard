@@ -41,6 +41,7 @@ class TrajectoryLog:
 
 
 DEFAULT_MODEL = "claude-sonnet-4-5-20250929"
+DEFAULT_LATENTSTACK_MODEL = "gemini/gemini-3.1-pro"
 
 # HTTP statuses worth another attempt: rate limiting, transient conflict,
 # and the 5xx family (529 = Anthropic "overloaded").
@@ -148,6 +149,130 @@ class AnthropicLLMClient:
                 text,
                 getattr(usage, "input_tokens", None),
                 getattr(usage, "output_tokens", None),
+                latency_ms,
+            )
+            return text
+
+        reason = f"{type(last_exc).__name__}: {last_exc}" if last_exc else "unknown error"
+        self.failures.append(f"{stage}: {reason}")
+        self._record(
+            call_id,
+            stage,
+            prompt,
+            f"<CALL FAILED after {self.max_attempts} attempt(s) -- {reason}>",
+            None,
+            None,
+            (time.perf_counter() - start) * 1000,
+        )
+        return ""
+
+    def _record(
+        self,
+        call_id: str,
+        stage: str,
+        prompt: str,
+        response: str,
+        input_tokens: int | None,
+        output_tokens: int | None,
+        latency_ms: float,
+    ) -> None:
+        self.trajectory_log.record(
+            LLMTrajectory(
+                call_id=call_id,
+                stage=stage,
+                model=self.model,
+                prompt=prompt,
+                response=response,
+                input_tokens=input_tokens,
+                output_tokens=output_tokens,
+                latency_ms=latency_ms,
+                timestamp=datetime.now(UTC).isoformat(),
+            )
+        )
+
+
+@dataclass
+class LatentStackLLMClient:
+    """The LatentStack gateway client. Requires LATENTSTACK_API_KEY in the environment."""
+
+    trajectory_log: TrajectoryLog
+    model: str = DEFAULT_LATENTSTACK_MODEL
+    max_attempts: int = 5
+    base_delay: float = 1.0
+    max_delay: float = 30.0
+    client: Any = None
+    _client: Any = field(init=False, repr=False)
+    failures: list[str] = field(init=False, default_factory=list, repr=False)
+
+    def __post_init__(self) -> None:
+        if self.client is not None:
+            self._client = self.client
+            return
+        import openai
+
+        api_key = os.environ.get("LATENTSTACK_API_KEY")
+        if not api_key:
+            raise RuntimeError(
+                "LATENTSTACK_API_KEY is not set. Advanced mode needs this to call LatentStack."
+            )
+        self._client = openai.OpenAI(base_url="https://latentstack.dev/v1", api_key=api_key)
+
+    def _sleep(self, seconds: float) -> None:
+        time.sleep(seconds)
+
+    def _classify(self, exc: Exception) -> str:
+        import openai
+
+        if isinstance(exc, (openai.APIConnectionError, openai.APITimeoutError)):
+            return "retry"
+        if isinstance(exc, (openai.AuthenticationError, openai.PermissionDeniedError)):
+            return "raise"
+        if isinstance(exc, openai.APIStatusError):
+            return "retry" if getattr(exc, "status_code", None) in _RETRYABLE_STATUS else "degrade"
+        return "raise"
+
+    def complete(self, *, stage: str, system: str, prompt: str) -> str:
+        call_id = str(uuid.uuid4())[:8]
+        start = time.perf_counter()
+        last_exc: Exception | None = None
+
+        for attempt in range(1, self.max_attempts + 1):
+            try:
+                response = self._client.chat.completions.create(
+                    model=self.model,
+                    messages=[
+                        {"role": "system", "content": system},
+                        {"role": "user", "content": prompt}
+                    ],
+                    max_tokens=1536,
+                )
+            except Exception as exc:  # noqa: BLE001
+                verdict = self._classify(exc)
+                if verdict == "raise":
+                    raise LLMCallError(f"{stage}: {type(exc).__name__}: {exc}") from exc
+                last_exc = exc
+                if verdict == "degrade" or attempt == self.max_attempts:
+                    break
+                self._sleep(
+                    min(self.base_delay * 2 ** (attempt - 1), self.max_delay)
+                    + random.uniform(0, self.base_delay)
+                )
+                continue
+
+            latency_ms = (time.perf_counter() - start) * 1000
+            text = response.choices[0].message.content or ""
+            usage = getattr(response, "usage", None)
+            
+            prompt_tokens = getattr(usage, "prompt_tokens", None)
+            completion_tokens = getattr(usage, "completion_tokens", None)
+            
+            self._record(
+                call_id,
+                stage,
+                prompt,
+                text,
+                prompt_tokens,
+                completion_tokens,
                 latency_ms,
             )
             return text

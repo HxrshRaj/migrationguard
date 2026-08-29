@@ -31,6 +31,7 @@ PRICES: dict[str, tuple[float, float]] = {
     "claude-opus-5": (5.00, 25.00),
     "claude-haiku-4-5": (1.00, 5.00),
     "claude-haiku-4-5-20251001": (1.00, 5.00),
+    "gemini/gemini-3.1-pro": (1.25, 10.00),  # TODO confirm against LatentStack published gateway pricing
 }
 
 # Models that cost nothing to call -- the deterministic stand-in used by

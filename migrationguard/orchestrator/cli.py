@@ -20,6 +20,7 @@ from migrationguard.fixgen import baseline as fixgen_baseline
 from migrationguard.llm import (
     AnthropicLLMClient,
     FakeLLMClient,
+    LatentStackLLMClient,
     LLMClient,
     TrajectoryLog,
 )
@@ -56,6 +57,13 @@ def main() -> None:
     type=click.Choice(["baseline", "advanced"]),
     default="baseline",
     show_default=True,
+)
+@click.option(
+    "--provider",
+    type=click.Choice(["anthropic", "latentstack"]),
+    default="anthropic",
+    show_default=True,
+    help="LLM provider for advanced mode.",
 )
 @click.option(
     "--path",
@@ -111,6 +119,7 @@ def scan(
     fake_llm: bool,
     json_output: bool,
     fail_on: str,
+    provider: str,
 ) -> None:
     """Scan code for risky SQL construction, fix what it can, verify every fix."""
     mode_enum = Mode(mode)
@@ -154,11 +163,13 @@ def scan(
 
     llm: LLMClient | None = None
     if mode_enum == Mode.ADVANCED:
-        llm = (
-            FakeLLMClient(trajectory_log, responder=_fake_responder)
-            if fake_llm
-            else AnthropicLLMClient(trajectory_log)
-        )
+        if fake_llm:
+            llm = FakeLLMClient(trajectory_log, responder=_fake_responder)
+        elif provider == "latentstack":
+            llm = LatentStackLLMClient(trajectory_log)
+        else:
+            llm = AnthropicLLMClient(trajectory_log)
+        
         findings = [
             scanner_explain.explain(
                 f, _function_source(source_by_file[f.file], f.function), llm
